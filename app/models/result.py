@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime
 from datetime import datetime
 from sqlalchemy.orm import relationship
+from app.db.session import Base
 
 class Result(Base):
     __tablename__ = "results"

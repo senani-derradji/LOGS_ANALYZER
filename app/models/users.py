@@ -1,6 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from datetime import datetime
 from sqlalchemy.orm import relationship
+from app.db.session import Base
+
 
 
 class Users(Base):
@@ -10,8 +12,10 @@ class Users(Base):
     name = Column(String(50), index=True)
     email = Column(String(50), unique=True, index=True)
     password_hash = Column(String(256))
-    role = Column(String(10))
-    telegram_chat_id = Column(String(50))
+    role = Column(String(10), default="user")
+    telegram_chat_id = Column(String(15), unique=True, index=True)
+
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     logs = relationship("Logs", back_populates="user")
