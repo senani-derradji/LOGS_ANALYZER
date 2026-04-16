@@ -4,13 +4,23 @@ from pydantic import class_validators
 from pathlib import Path
 
 
-class LogCreate(BaseModel):
+class LogCreateValidator(BaseModel):
     file_path: Path
     @class_validators.validator("file_path")
     def validate_file_path(cls, v):
         if not v.exists():
             raise ValueError("file_path does not exist")
         return v
+
+    file_name: str
+    @class_validators.validator("file_name")
+    def validate_file_name(cls, v):
+        if v.endswith(".log"):
+            return v
+        # else:
+        #     raise ValueError("file_name must end with .log")
+
+
 
     status: str = "pending"
     @class_validators.validator("status")
@@ -19,17 +29,14 @@ class LogCreate(BaseModel):
             raise ValueError("status must be pending, completed or failed")
         return v
 
-    created_at: datetime = datetime.utcnow()
-
     class Config:
         from_attributes = True
 
 
 
-class LogResponse(BaseModel):
+class LogResponse(LogCreateValidator):
     id: int
-    file_path: str
-    status: str
+    user_id: int
 
     class Config:
         from_attributes = True

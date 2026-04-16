@@ -5,6 +5,7 @@ from app.models.users import Users
 from app.security.jwt import create_password_hash
 from app.api.routes_users import UserRoutes
 from app.api.routes_stats import StatisticsRoutes
+from app.api.routes_logs import LogsRoutes
 
 
 def create_super_user():
@@ -42,11 +43,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-user_routes = UserRoutes()
-router_stats = StatisticsRoutes()
-app.include_router(user_routes.router, prefix="/api/users")
-app.include_router(router_stats.router, prefix="/api/stats")
+user_routes = UserRoutes() ; router_stats = StatisticsRoutes() ; router_logs = LogsRoutes()
 
+app.include_router(user_routes.router, prefix="/api/users", tags=["users"])
+app.include_router(router_stats.router, prefix="/api/stats", tags=["stats"])
+app.include_router(router_logs.router, prefix="/api/logs", tags=["logs"])
 
 
 @app.get("/")

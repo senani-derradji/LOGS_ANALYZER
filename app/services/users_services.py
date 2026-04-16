@@ -9,7 +9,6 @@ class UserOperations:
     def __init__(self, db: Session):
         self.db = db
 
-
     def get_user_by_email(self, email: str):
         try:
             user = self.db.query(Users).filter(Users.email == email).first()
@@ -48,7 +47,7 @@ class UserOperations:
                     arr.append(i)
 
             return arr
-        
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
