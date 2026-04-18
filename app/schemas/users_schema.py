@@ -41,7 +41,7 @@ class UserUpdate(BaseModel):
 class UserInDB(BaseModel):
     id: int
     name: str
-    email: EmailStr 
+    email: EmailStr
     role: str
     telegram_chat_id: None | str
     created_at: datetime

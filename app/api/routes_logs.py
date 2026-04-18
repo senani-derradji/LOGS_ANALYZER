@@ -1,14 +1,63 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from pathlib import Path
-import shutil
-from app.security.jwt import get_current_user, require_admin
-from fastapi import Depends
+import shutil , json , os
+from app.security.jwt import get_current_user
 from app.schemas.log_schema import LogCreateValidator
-from app.utils.get_ops import get_log_ops
-from app.utils.get_ops import get_user_ops
+from app.schemas.result_schema import ResultResponse
+from app.utils.get_ops import get_log_ops, get_user_ops, get_result_ops
 from app.services.logs_services import LogsOperations
 from app.services.users_services import UserOperations
+from app.services.result_services import ResultOperations
+from app.services.logs.parser import LogParser
+from app.services.logs.ai import ai_analyzer
+from app.security.jwt import require_admin
+from app.utils.delete_file import delete_file
+from app.utils.logger import logger
+from app.core.redis import get_redis
 
+
+
+def process_logs(
+    file_path: Path,
+    log_id: int,
+    user_id: int,
+    res_ops: ResultOperations,
+    log_ops: LogsOperations
+):
+    parser = LogParser()
+    result = parser.parse_file(file_path=str(file_path))
+
+    for i in result["result"]["logs"]:
+        level = i.get("level")
+        message = i.get("message")
+        extra = i.get("extra")
+
+        note = "NO AI NOTES"
+
+        try:
+            # Run AI only for important logs
+            if level in ["ERROR", "CRITICAL"]:
+                ai_result = ai_analyzer(json.dumps(i, ensure_ascii=False))
+
+                if ai_result and isinstance(ai_result.get("AI"), list):
+                    ai_list = ai_result["AI"]
+                    if len(ai_list) > 0:
+                        note = ai_list[0].get("note", "NO NOTE")
+
+            res_ops.create_result({
+                "log_id": log_id,
+                "user_id": user_id,
+                "level": level,
+                "message": message,
+                "details": json.dumps(extra) if extra else None,
+                "ai_note": note,
+            })
+
+        except Exception as e:
+            logger.error(f"Error processing log: {e}")
+
+
+    log_ops.change_status(log_id, "completed")
 
 
 class LogsRoutes:
@@ -23,58 +72,87 @@ class LogsRoutes:
         self.upload_dir = Path("uploads")
         self.upload_dir.mkdir(exist_ok=True)
 
-    async def upload_file(self, file: UploadFile = File(...),
-                          user=Depends(get_current_user),
-                          logs_ops: LogsOperations = Depends(get_log_ops),
-                          user_ops: UserOperations = Depends(get_user_ops)):
-
-        user_data = user_ops.get_user_by_email(user.get('sub'))
+    async def upload_file(
+        self,
+        background_tasks: BackgroundTasks,
+        file: UploadFile = File(...),
+        user=Depends(get_current_user),
+        logs_ops: LogsOperations = Depends(get_log_ops),
+        user_ops: UserOperations = Depends(get_user_ops),
+        res_ops: ResultOperations = Depends(get_result_ops),
+    ):
+        user_data = user_ops.get_user_by_email(user.get("sub"))
 
         if not file:
             raise HTTPException(status_code=400, detail="No file uploaded")
 
-        file_path = self.upload_dir / Path(f"user_{user.get('sub').split('@')[0]}") / file.filename
+        file_path = (
+            self.upload_dir
+            / Path(f"user_{user.get('sub').split('@')[0]}")
+            / file.filename
+        )
+
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        print(file_path)
-
 
         save_log = logs_ops.create_log(
-            log_data=LogCreateValidator(file_path=str(file_path), file_name=file.filename, status="pending"),
-            user_id=user_data.id
+            log_data=LogCreateValidator(
+                file_path=str(file_path),
+                file_name=file.filename,
+                status="pending"
+            ),
+            user_id=user_data.id,
         )
+
+
+        redis_client = get_redis()
+        job_data = {
+            "file_path": str(file_path),
+            "log_id": save_log.id,
+            "user_id": user_data.id
+        }
+        
+        print(job_data)
+
+        await redis_client.lpush(f"logs_queue", json.dumps(job_data))
 
         return {
             "filename": file.filename,
             "path": str(file_path),
-            "message": "File uploaded successfully"
+            "message": "File uploaded successfully",
+            "status": "processing"
         }
 
+    async def get_logs(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        logs_ops: LogsOperations = Depends(get_log_ops),
+        user=Depends(get_current_user),
+        user_ops: UserOperations = Depends(get_user_ops),
+        admin=Depends(require_admin),
+    ):
+        user_id = user_ops.get_user_by_email(user.get("sub")).id
+        logs = logs_ops.get_logs_by_user(user_id)
 
-    async def get_logs(self,
-                       skip: int = 0,
-                       limit: int = 100,
-                       logs_ops: LogsOperations = Depends(get_log_ops),
-                       user=Depends(get_current_user),
-                       user_ops: UserOperations = Depends(get_user_ops)
-                       ):
-        logs = logs_ops.get_logs_by_user(user_ops.get_user_by_email(user.get('sub')).id)
         if not logs:
             raise HTTPException(status_code=404, detail="Logs not found")
+
+
         return logs
 
 
-    async def get_log(self,
-                         log_id: int,
-                         logs_ops: LogsOperations = Depends(get_log_ops),
-                         user=Depends(get_current_user)):
-
+    async def get_log(
+        self,
+        log_id: int,
+        logs_ops: LogsOperations = Depends(get_log_ops),
+        user=Depends(get_current_user),
+        admin=Depends(require_admin),
+    ):
         log = logs_ops.get_log_by_id(log_id)
-        print(log.user_id)
-        print(user.get('sub'))
 
         if not log:
             raise HTTPException(status_code=404, detail="Log not found")
@@ -82,21 +160,33 @@ class LogsRoutes:
         return log
 
 
-    async def delete_log(self,
-                         log_id: int,
-                         logs_ops: LogsOperations = Depends(get_log_ops),
-                         user=Depends(get_current_user),
-                         user_ops: UserOperations = Depends(get_user_ops)):
+    async def delete_log(
+        self,
+        log_id: int,
+        logs_ops: LogsOperations = Depends(get_log_ops),
+        user=Depends(get_current_user),
+        user_ops: UserOperations = Depends(get_user_ops),
+        admin=Depends(require_admin),
+    ):
         log = logs_ops.get_log_by_id(log_id)
+
         if not log:
             raise HTTPException(status_code=404, detail="Log not found")
 
-        if log.user_id != user_ops.get_user_by_email(user.get('sub')).id:
-            raise HTTPException(status_code=403, detail="You are not authorized to delete this log")
+        user_id = user_ops.get_user_by_email(user.get("sub")).id
 
-        logs_ops.delete_log(log_id) ; import os; os.remove(log.file_path)
+        if log.user_id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to delete this log"
+            )
+
+        logs_ops.delete_log(log_id)
+
+        try:
+            delete_file(log.file_path)
+        except FileNotFoundError:
+            logger.error(f"File not found: {log.file_path}")
+
+
         return {"message": "Log deleted successfully"}
-
-
-
-

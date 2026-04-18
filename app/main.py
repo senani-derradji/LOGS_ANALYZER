@@ -6,10 +6,12 @@ from app.security.jwt import create_password_hash
 from app.api.routes_users import UserRoutes
 from app.api.routes_stats import StatisticsRoutes
 from app.api.routes_logs import LogsRoutes
+from app.core.redis import init_redis, close_redis
 
 
 def create_super_user():
     import random
+
     db = SessionLocal()
 
     try:
@@ -21,14 +23,16 @@ def create_super_user():
                 continue
             else:
                 user = Users(
-                        name=admin,
-                        email=f"{admin}@localhost.com",
-                        password_hash=create_password_hash("admin"),
-                        telegram_chat_id=random.randint(1000000000, 9999999999),
-                        role="admin"
-                    )
+                    name=admin,
+                    email=f"{admin}@localhost.com",
+                    password_hash=create_password_hash("admin"),
+                    telegram_chat_id=random.randint(1000000000, 9999999999),
+                    role="admin",
+                )
 
-                db.add(user) ; db.commit() ; db.refresh(user)
+                db.add(user)
+                db.commit()
+                db.refresh(user)
 
     finally:
         db.close()
@@ -38,12 +42,16 @@ def create_super_user():
 async def lifespan(app: FastAPI):
     init_db()
     create_super_user()
+    await init_redis()
     yield
+    await close_redis()
 
 
 app = FastAPI(lifespan=lifespan)
 
-user_routes = UserRoutes() ; router_stats = StatisticsRoutes() ; router_logs = LogsRoutes()
+user_routes = UserRoutes()
+router_stats = StatisticsRoutes()
+router_logs = LogsRoutes()
 
 app.include_router(user_routes.router, prefix="/api/users", tags=["users"])
 app.include_router(router_stats.router, prefix="/api/stats", tags=["stats"])

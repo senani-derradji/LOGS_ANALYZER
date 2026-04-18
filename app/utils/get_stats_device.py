@@ -3,10 +3,10 @@ import platform
 import socket
 from datetime import datetime
 
-
 # =========================
 # Standard (basic)
 # =========================
+
 
 def get_cpu_usage():
     return psutil.cpu_percent(interval=1)
@@ -17,14 +17,14 @@ def get_ram_usage():
 
 
 def get_disk_usage():
-    return psutil.disk_usage('/').percent
+    return psutil.disk_usage("/").percent
 
 
 def get_basic_stats():
     return {
         "cpu_usage": get_cpu_usage(),
         "ram_usage": get_ram_usage(),
-        "disk_usage": get_disk_usage()
+        "disk_usage": get_disk_usage(),
     }
 
 
@@ -32,13 +32,14 @@ def get_basic_stats():
 # Advanced (extended)
 # =========================
 
+
 def get_system_info():
     return {
         "hostname": socket.gethostname(),
         "os": platform.system(),
         "os_version": platform.version(),
         "architecture": platform.machine(),
-        "boot_time": datetime.fromtimestamp(psutil.boot_time()).isoformat()
+        "boot_time": datetime.fromtimestamp(psutil.boot_time()).isoformat(),
     }
 
 
@@ -47,7 +48,7 @@ def get_cpu_info():
         "physical_cores": psutil.cpu_count(logical=False),
         "total_cores": psutil.cpu_count(logical=True),
         "usage_percent": psutil.cpu_percent(interval=1),
-        "per_core_usage": psutil.cpu_percent(interval=1, percpu=True)
+        "per_core_usage": psutil.cpu_percent(interval=1, percpu=True),
     }
 
 
@@ -57,7 +58,7 @@ def get_memory_info():
         "total": vm.total,
         "available": vm.available,
         "used": vm.used,
-        "percent": vm.percent
+        "percent": vm.percent,
     }
 
 
@@ -67,7 +68,7 @@ def get_swap_info():
         "total": swap.total,
         "used": swap.used,
         "free": swap.free,
-        "percent": swap.percent
+        "percent": swap.percent,
     }
 
 
@@ -78,15 +79,17 @@ def get_disk_info():
     for partition in partitions:
         try:
             usage = psutil.disk_usage(partition.mountpoint)
-            disks.append({
-                "device": partition.device,
-                "mountpoint": partition.mountpoint,
-                "filesystem": partition.fstype,
-                "total": usage.total,
-                "used": usage.used,
-                "free": usage.free,
-                "percent": usage.percent
-            })
+            disks.append(
+                {
+                    "device": partition.device,
+                    "mountpoint": partition.mountpoint,
+                    "filesystem": partition.fstype,
+                    "total": usage.total,
+                    "used": usage.used,
+                    "free": usage.free,
+                    "percent": usage.percent,
+                }
+            )
         except PermissionError:
             continue
 
@@ -99,7 +102,7 @@ def get_network_info():
         "bytes_sent": net.bytes_sent,
         "bytes_recv": net.bytes_recv,
         "packets_sent": net.packets_sent,
-        "packets_recv": net.packets_recv
+        "packets_recv": net.packets_recv,
     }
 
 
@@ -111,5 +114,5 @@ def get_full_stats():
         "swap": get_swap_info(),
         "disk": get_disk_info(),
         "network": get_network_info(),
-        "time": datetime.utcnow().isoformat()
+        "time": datetime.utcnow().isoformat(),
     }

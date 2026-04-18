@@ -1,6 +1,5 @@
 from app.utils.get_stats_device import (
     get_system_info,
-
 )
 from fastapi import APIRouter, HTTPException
 from app.security.jwt import require_admin

@@ -5,9 +5,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def init_db():
-    from app.models.log import Logs ; from app.models.result import Result ; from app.models.users import Users
+    from app.models.log import Logs
+    from app.models.result import Result
+    from app.models.users import Users
+
     Base.metadata.create_all(bind=engine)
     print("Database initialized successfully")
+
 
 def get_db():
     db = SessionLocal()

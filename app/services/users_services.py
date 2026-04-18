@@ -27,8 +27,6 @@ class UserOperations:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-
-
     def get_user_by_id(self, user_id: int):
         try:
             result = self.db.query(Users).filter(Users.id == user_id).first()
@@ -37,7 +35,6 @@ class UserOperations:
             return result
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-
 
     def get_users(self, skip: int = 0, limit: int = 100):
         try:
@@ -51,18 +48,19 @@ class UserOperations:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-
     def create_user(self, user: UserCreate):
         db_user = self.get_user_by_name(user.name)
         if db_user is not None:
-            raise HTTPException(status_code=400, detail=f"User already exists: {db_user.name}")
+            raise HTTPException(
+                status_code=400, detail=f"User already exists: {db_user.name}"
+            )
 
         new_user = Users(
-                    name=user.name,
-                    email=user.email,
-                    password_hash=user.password,
-                    telegram_chat_id=user.telegram_chat_id,
-                )
+            name=user.name,
+            email=user.email,
+            password_hash=user.password,
+            telegram_chat_id=user.telegram_chat_id,
+        )
         try:
             self.db.add(new_user)
             self.db.commit()
@@ -71,7 +69,6 @@ class UserOperations:
         except Exception as e:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
-
 
     def login_user(self, form_data):
         db_user = self.get_user_by_name(form_data.username)
@@ -86,16 +83,14 @@ class UserOperations:
 
         if db_user.is_active is True:
             if verify_password(form_data.password, db_user.password_hash):
-                access_token = create_access_token(data={"sub": db_user.email, "role": db_user.role})
-                return {
-                        "access_token": access_token,
-                        "token_type": "bearer"
-                        }
+                access_token = create_access_token(
+                    data={"sub": db_user.email, "role": db_user.role}
+                )
+                return {"access_token": access_token, "token_type": "bearer"}
             else:
                 raise HTTPException(status_code=400, detail="Invalid password")
         else:
             raise HTTPException(status_code=400, detail="User is not active")
-
 
     def update_user(self, user_id: int, user_update: UserUpdate):
         db_user = self.db.query(Users).filter(Users.id == user_id).first()
@@ -112,7 +107,6 @@ class UserOperations:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
         return db_user
-
 
     def delete_user(self, user_id: int):
         db_user = self.db.query(Users).filter(Users.id == user_id).first()

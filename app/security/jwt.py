@@ -4,12 +4,16 @@ from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.hash import sha256_crypt
-import os ; from dotenv import load_dotenv ; load_dotenv()
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
 sec_key = os.getenv("SECRET_KEY", "secret")
 alg = os.getenv("ALGORITHM", "HS256")
+
 
 def create_password_hash(password):
     if not password:

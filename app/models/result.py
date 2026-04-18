@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, DateTime, JSON
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from app.db.session import Base
+
 
 class Result(Base):
     __tablename__ = "results"
@@ -12,6 +13,9 @@ class Result(Base):
 
     level = Column(String)
     message = Column(Text)
+    details = Column(JSON, nullable=True)
+    ai_note = Column(Text)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
     log = relationship("Logs", back_populates="results")

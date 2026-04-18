@@ -1,4 +1,3 @@
-
 from app.models.log import Logs
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -16,9 +15,8 @@ class LogsOperations:
         else:
             raise HTTPException(status_code=404, detail="Logs not found")
 
-
     def get_log_by_id(self, log_id: int):
-        logs =  self.db.query(Logs).filter(Logs.id == log_id).first()
+        logs = self.db.query(Logs).filter(Logs.id == log_id).first()
         if logs is not None:
             return logs
         else:
@@ -34,29 +32,49 @@ class LogsOperations:
     def create_log(self, log_data: LogCreateValidator, user_id: int):
         print("INSIDE CREATE LOG ...")
 
-        if self.db.query(Logs).filter(Logs.file_path == str(log_data.file_path)).first():
+        if (
+            self.db.query(Logs)
+            .filter(Logs.file_path == str(log_data.file_path))
+            .first()
+        ):
             raise HTTPException(status_code=400, detail="Log already exists")
 
         if self.db.query(Logs).filter(Logs.user_id == user_id).count() >= 2:
-            raise HTTPException(status_code=400, detail="Maximum number of logs reached for this user")
+            raise HTTPException(
+                status_code=400, detail="Maximum number of logs reached for this user"
+            )
 
         try:
             db_log = Logs(
                 file_path=str(log_data.file_path),
                 file_name=log_data.file_name,
                 status=log_data.status,
-                user_id=user_id
+                user_id=user_id,
             )
 
             self.db.add(db_log)
             self.db.commit()
             self.db.refresh(db_log)
             return db_log
-        
+
         except Exception as e:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
 
+    def change_status(self, log_id: int, new_status: str = "completed"):
+        db_log = self.get_log_by_id(log_id)
+        if db_log:
+            try:
+                if new_status:
+                    db_log.status = new_status
+                    self.db.commit()
+                    return {"message" : f"status {db_log.status} changed"}
+
+            except Exception as e:
+                self.db.rollback()
+                raise HTTPException(status_code=500, detail=str(e))
+        else:
+            raise HTTPException(status_code=404, detail="Log not found")
 
     def delete_log(self, log_id: int):
         db_log = self.get_log_by_id(log_id)
@@ -64,7 +82,9 @@ class LogsOperations:
             try:
                 self.db.delete(db_log)
                 self.db.commit()
-                return {"message": f"Log deleted successfully {db_log.file_name} : {db_log.id}"}
+                return {
+                    "message": f"Log deleted successfully {db_log.file_name} : {db_log.id}"
+                }
             except Exception as e:
                 self.db.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
