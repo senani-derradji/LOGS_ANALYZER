@@ -1,7 +1,5 @@
-import requests
-import json
-import os
-import re
+import os, sys, re, json, requests
+
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -18,6 +16,7 @@ def extract_json(text: str):
     return None
 
 
+
 def ai_analyzer(data):
 
     headers = {
@@ -26,7 +25,7 @@ def ai_analyzer(data):
     }
 
     payload = {
-        "model": "openrouter/elephant-alpha",
+        "model": "allenai/Olmo-3-7B-Instruct:publicai",
         "messages": [
             {
                 "role": "system",

@@ -1,52 +1,55 @@
-import asyncio, json
-import sys, os ; BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) ; sys.path.append(BASE_DIR)
+import asyncio
+import json
+import sys
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) ; sys.path.append(BASE_DIR)
 
 from app.core.redis import init_redis, get_redis
-from app.services.logs_services import LogsOperations
-from app.services.result_services import ResultOperations
-from app.db.session import SessionLocal
-from app.api.routes_logs import process_logs
+from app.core.process import process_logs
 
-async def worker():
+
+async def worker(worker_id: int):
 
     await init_redis()
     redis_client = get_redis()
 
+    print(f"[WORKER {worker_id}] started")
+
     while True:
+
         job = await redis_client.rpop("logs_queue")
-        print("[WORKER JOB] -> ", job)
 
         if job:
-            data = json.loads(job)
-            print("[WORKER DATA] -> ", data)
 
-            db = SessionLocal()
+            data = json.loads(job)
+            print(f"[WORKER {worker_id}] JOB:", data)
 
             try:
-                log_ops = LogsOperations(db)
-                res_ops = ResultOperations(db)
-
-                process_logs(
+                await process_logs(
                     data["file_path"],
                     data["log_id"],
-                    data["user_id"],
-                    res_ops,
-                    log_ops
+                    data["user_id"]
                 )
 
-            finally:
-                db.close()
+                print(f"[WORKER {worker_id}] DONE log_id={data['log_id']}")
+
+            except Exception as e:
+                print(f"[WORKER {worker_id}] ERROR:", e)
 
         else:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
+
+
+async def main():
+
+    workers = []
+
+    for i in range(1):  # adjust scale
+        workers.append(asyncio.create_task(worker(i)))
+
+    await asyncio.gather(*workers)
+
 
 if __name__ == "__main__":
-    async def main():
-        tasks = []
-
-        for _ in range(2):
-            tasks.append(asyncio.create_task(worker()))
-
-        await asyncio.gather(*tasks)
-
     asyncio.run(main())

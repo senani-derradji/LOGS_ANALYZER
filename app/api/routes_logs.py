@@ -8,56 +8,10 @@ from app.utils.get_ops import get_log_ops, get_user_ops, get_result_ops
 from app.services.logs_services import LogsOperations
 from app.services.users_services import UserOperations
 from app.services.result_services import ResultOperations
-from app.services.logs.parser import LogParser
-from app.services.logs.ai import ai_analyzer
 from app.security.jwt import require_admin
 from app.utils.delete_file import delete_file
 from app.utils.logger import logger
 from app.core.redis import get_redis
-
-
-
-def process_logs(
-    file_path: Path,
-    log_id: int,
-    user_id: int,
-    res_ops: ResultOperations,
-    log_ops: LogsOperations
-):
-    parser = LogParser()
-    result = parser.parse_file(file_path=str(file_path))
-
-    for i in result["result"]["logs"]:
-        level = i.get("level")
-        message = i.get("message")
-        extra = i.get("extra")
-
-        note = "NO AI NOTES"
-
-        try:
-            # Run AI only for important logs
-            if level in ["ERROR", "CRITICAL"]:
-                ai_result = ai_analyzer(json.dumps(i, ensure_ascii=False))
-
-                if ai_result and isinstance(ai_result.get("AI"), list):
-                    ai_list = ai_result["AI"]
-                    if len(ai_list) > 0:
-                        note = ai_list[0].get("note", "NO NOTE")
-
-            res_ops.create_result({
-                "log_id": log_id,
-                "user_id": user_id,
-                "level": level,
-                "message": message,
-                "details": json.dumps(extra) if extra else None,
-                "ai_note": note,
-            })
-
-        except Exception as e:
-            logger.error(f"Error processing log: {e}")
-
-
-    log_ops.change_status(log_id, "completed")
 
 
 class LogsRoutes:
@@ -114,7 +68,7 @@ class LogsRoutes:
             "log_id": save_log.id,
             "user_id": user_data.id
         }
-        
+
         print(job_data)
 
         await redis_client.lpush(f"logs_queue", json.dumps(job_data))
