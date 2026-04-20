@@ -3,8 +3,8 @@ from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
 from fastapi import HTTPException
 from app.security.jwt import create_access_token, verify_password
 from app.db.session import SessionLocal
-
-
+from datetime import datetime
+from typing import Optional
 
 
 class UserOperations:
@@ -50,27 +50,6 @@ class UserOperations:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    def create_user(self, user: UserCreate):
-        db_user = self.get_user_by_name(user.name)
-        if db_user is not None:
-            raise HTTPException(
-                status_code=400, detail=f"User already exists: {db_user.name}"
-            )
-
-        new_user = Users(
-            name=user.name,
-            email=user.email,
-            password_hash=user.password,
-            telegram_chat_id=user.telegram_chat_id,
-        )
-        try:
-            self.db.add(new_user)
-            self.db.commit()
-            self.db.refresh(new_user)
-            return new_user
-        except Exception as e:
-            self.db.rollback()
-            raise HTTPException(status_code=500, detail=str(e))
 
     def login_user(self, form_data):
         db_user = self.get_user_by_name(form_data.username)
@@ -85,6 +64,8 @@ class UserOperations:
 
         if db_user.is_active is True:
             if verify_password(form_data.password, db_user.password_hash):
+                db_user.last_login = datetime.utcnow()
+                self.db.commit()
                 access_token = create_access_token(
                     data={"sub": db_user.email, "role": db_user.role}
                 )
@@ -108,6 +89,38 @@ class UserOperations:
         except Exception as e:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+        return db_user
+
+    def delete_user(self, user_id: int):
+        db_user = self.db.query(Users).filter(Users.id == user_id).first()
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        try:
+            self.db.delete(db_user)
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+        return db_user
+
+    def toggle_user_active(self, user_id: int):
+        db_user = self.get_user_by_id(user_id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        db_user.is_active = not db_user.is_active
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+
+    def change_user_role(self, user_id: int, new_role: str):
+        db_user = self.get_user_by_id(user_id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if new_role not in ("user", "admin"):
+            raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
+        db_user.role = new_role
+        self.db.commit()
+        self.db.refresh(db_user)
         return db_user
 
     def delete_user(self, user_id: int):

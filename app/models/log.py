@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from datetime import datetime
 from sqlalchemy.orm import relationship
-from app.db.session import Base
+from app.db.base import Base
 
 
 class Logs(Base):
@@ -9,10 +9,28 @@ class Logs(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    file_path = Column(String(256), index=True, unique=True, nullable=False)
-    file_name = Column(String(32), index=True, nullable=False)
-    status = Column(String(10), default="pending")
+    file_path = Column(String(512), index=True, unique=True, nullable=False)
+    file_name = Column(String(128), index=True, nullable=False)
+    status = Column(String(20), default="pending")
 
+    file_size = Column(Integer, nullable=True)
+    total_lines = Column(Integer, default=0)
+    parsed_lines = Column(Integer, default=0)
+    unknown_lines = Column(Integer, default=0)
+
+    summary = Column(JSON, nullable=True)
+    levels_summary = Column(JSON, nullable=True)
+    top_ips = Column(JSON, nullable=True)
+    top_users = Column(JSON, nullable=True)
+    top_urls = Column(JSON, nullable=True)
+    templates_summary = Column(JSON, nullable=True)
+    signatures_summary = Column(JSON, nullable=True)
+    event_category_summary = Column(JSON, nullable=True)
+    correlations = Column(JSON, nullable=True)
+    anomalies = Column(JSON, nullable=True)
+
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

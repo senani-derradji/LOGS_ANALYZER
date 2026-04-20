@@ -7,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 
 from app.core.redis import init_redis, get_redis
 from app.core.process import process_logs
+from app.utils.logger import logger
 
 
 async def worker(worker_id: int):
@@ -14,7 +15,7 @@ async def worker(worker_id: int):
     await init_redis()
     redis_client = get_redis()
 
-    print(f"[WORKER {worker_id}] started")
+    logger.info(f"[WORKER {worker_id}] started")
 
     while True:
 
@@ -23,8 +24,7 @@ async def worker(worker_id: int):
         if job:
 
             data = json.loads(job)
-            # print(f"[WORKER {worker_id}] JOB:", data)
-            print("[DATA] ", data)
+            logger.debug(f"[DATA] {data}")
 
             try:
                 await process_logs(
@@ -33,10 +33,10 @@ async def worker(worker_id: int):
                     data["user_id"]
                 )
 
-                print(f"[WORKER {worker_id}] DONE log_id={data['log_id']}")
+                logger.info(f"[WORKER {worker_id}] DONE log_id={data['log_id']}")
 
             except Exception as e:
-                print(f"[WORKER {worker_id}] ERROR:", e)
+                logger.error(f"[WORKER {worker_id}] ERROR: {e}")
 
         else:
             await asyncio.sleep(0.5)

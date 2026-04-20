@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from app.utils.logger import logger
 
 
 def delete_file(file_path: Path | str) -> bool:
@@ -9,8 +10,8 @@ def delete_file(file_path: Path | str) -> bool:
     try:
         if os.path.exists(file_path):
             if os.remove(file_path):
-                print(f"File '{file_path}' has been deleted.") ; return True
+                logger.info(f"File '{file_path}' has been deleted.") ; return True
         else:
-            print(f"File '{file_path}' does not exist.") ; return False
+            logger.warning(f"File '{file_path}' does not exist.") ; return False
     except Exception as e:
-        print(f"Error deleting file '{file_path}': {e}") ; return False
+        logger.error(f"Error deleting file '{file_path}': {e}") ; return False

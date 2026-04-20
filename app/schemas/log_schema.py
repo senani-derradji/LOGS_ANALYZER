@@ -4,6 +4,7 @@ from pydantic import class_validators
 from pathlib import Path
 import os
 from fastapi import HTTPException
+from typing import Optional, Dict, Any, List
 
 
 class LogCreateValidator(BaseModel):
@@ -30,8 +31,8 @@ class LogCreateValidator(BaseModel):
 
     @class_validators.validator("status")
     def validate_status(cls, v):
-        if v not in ["pending", "completed", "failed"]:
-            raise HTTPException(404, "status must be pending, completed or failed")
+        if v not in ["pending", "processing", "completed", "failed"]:
+            raise HTTPException(404, "status must be pending, processing, completed or failed")
         return v
 
     class Config:
@@ -41,6 +42,26 @@ class LogCreateValidator(BaseModel):
 class LogResponse(LogCreateValidator):
     id: int
     user_id: int
+
+    file_size: Optional[int] = None
+    total_lines: Optional[int] = None
+    parsed_lines: Optional[int] = None
+    unknown_lines: Optional[int] = None
+
+    summary: Optional[Dict[str, Any]] = None
+    levels_summary: Optional[Dict[str, Any]] = None
+    top_ips: Optional[Dict[str, Any]] = None
+    top_users: Optional[Dict[str, Any]] = None
+    top_urls: Optional[Dict[str, Any]] = None
+    templates_summary: Optional[Dict[str, Any]] = None
+    signatures_summary: Optional[Dict[str, Any]] = None
+    event_category_summary: Optional[Dict[str, Any]] = None
+    correlations: Optional[Dict[str, Any]] = None
+    anomalies: Optional[List[Dict[str, Any]]] = None
+
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True

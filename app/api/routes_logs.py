@@ -8,7 +8,6 @@ from app.utils.get_ops import get_log_ops, get_user_ops, get_result_ops
 from app.services.logs_services import LogsOperations
 from app.services.users_services import UserOperations
 from app.services.result_services import ResultOperations
-from app.security.jwt import require_admin
 from app.utils.delete_file import delete_file
 from app.utils.logger import logger
 from app.core.redis import get_redis
@@ -69,8 +68,6 @@ class LogsRoutes:
             "user_id": user_data.id
         }
 
-        print(job_data)
-
         await redis_client.lpush(f"logs_queue", json.dumps(job_data))
 
         return {
@@ -84,10 +81,10 @@ class LogsRoutes:
         self,
         skip: int = 0,
         limit: int = 100,
+        
         logs_ops: LogsOperations = Depends(get_log_ops),
         user=Depends(get_current_user),
         user_ops: UserOperations = Depends(get_user_ops),
-        admin=Depends(require_admin),
     ):
         user_id = user_ops.get_user_by_email(user.get("sub")).id
         logs = logs_ops.get_logs_by_user(user_id)
@@ -104,7 +101,6 @@ class LogsRoutes:
         log_id: int,
         logs_ops: LogsOperations = Depends(get_log_ops),
         user=Depends(get_current_user),
-        admin=Depends(require_admin),
     ):
         log = logs_ops.get_log_by_id(log_id)
 
@@ -120,7 +116,6 @@ class LogsRoutes:
         logs_ops: LogsOperations = Depends(get_log_ops),
         user=Depends(get_current_user),
         user_ops: UserOperations = Depends(get_user_ops),
-        admin=Depends(require_admin),
     ):
         log = logs_ops.get_log_by_id(log_id)
 

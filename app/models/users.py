@@ -1,7 +1,7 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON
 from datetime import datetime
 from sqlalchemy.orm import relationship
-from app.db.session import Base
+from app.db.base import Base
 
 
 class Users(Base):
@@ -16,6 +16,7 @@ class Users(Base):
 
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
 
     logs = relationship("Logs", back_populates="user")
     results = relationship("Result", back_populates="user")

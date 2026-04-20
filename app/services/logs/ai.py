@@ -2,6 +2,7 @@ import os, sys, re, json, requests
 
 from dotenv import load_dotenv
 from pathlib import Path
+from app.utils.logger import logger
 
 env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -101,22 +102,22 @@ Return ONLY this format:
 
     response = requests.post(BASE_URL, headers=headers, data=json.dumps(payload))
     result = response.json()
-    print("RESULT_01 :: ", result)
+    logger.debug(f"RESULT_01 :: {result}")
 
     content = result["choices"][0]["message"]["content"]
 
     clean_json = extract_json(content)
 
     if not clean_json:
-        print("No valid JSON found")
-        print(content)
+        logger.warning("No valid JSON found")
+        logger.debug(f"Content: {content}")
         return None
 
     try:
         parsed = json.loads(clean_json)
     except json.JSONDecodeError:
-        print("JSON parsing failed")
-        print(clean_json)
+        logger.error("JSON parsing failed")
+        logger.debug(f"Clean JSON: {clean_json}")
         return None
 
 
@@ -139,15 +140,15 @@ Return ONLY this format:
 
     response2 = requests.post(BASE_URL, headers=headers, data=json.dumps(payload))
     result2 = response2.json()
-    print("RESULT_02 :: ", result2)
+    logger.debug(f"RESULT_02 :: {result2}")
 
     final_content = result2["choices"][0]["message"]["content"]
 
     clean_final = extract_json(final_content)
 
     if not clean_final:
-        print("Final response invalid JSON")
-        print(final_content)
+        logger.warning("Final response invalid JSON")
+        logger.debug(f"Final content: {final_content}")
         return parsed
 
     try:
@@ -155,5 +156,5 @@ Return ONLY this format:
         return final_parsed
 
     except json.JSONDecodeError:
-        print("Final JSON parse error")
+        logger.error("Final JSON parse error")
         return parsed

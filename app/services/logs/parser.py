@@ -876,8 +876,9 @@ class LogParser:
 
 
 if __name__ == "__main__":
+    from app.utils.logger import logger
     parser = LogParser()
-    print(json.dumps(
+    logger.info(json.dumps(
         parser.parse_file(r"C:\Users\DERRADJI\Desktop\LOGS_ANALYZER\tests\server.log"),
         indent=2
     ))

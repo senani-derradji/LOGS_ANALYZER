@@ -56,6 +56,46 @@ Each parsed line returns:
 }
 ```
 
+### Field Mapping to Models
+
+The parser output integrates with the database models as follows:
+
+| Parser Field | Model | Column | Description |
+|--------------|-------|--------|-------------|
+| `level` | `Result` | `level` | Log severity level (INFO, ERROR, etc.) |
+| `message` | `Result` | `message` | Raw log message content |
+| `extra` | `Result` | `details` (JSON) | Extracted metadata (ip, user, url, status, etc.) |
+| `type` | — | — | Log category (system, web, security, application) |
+| `event_category` | — | — | Event classification (app_error, failed_login, etc.) |
+| `template` | — | — | Anonymized message pattern for grouping |
+| `signature` | — | — | Hash for identifying duplicate event types |
+
+### Integration in Operations
+
+**File Processing Flow** (`app/core/process.py`):
+
+```
+LogParser.parse_file() 
+    ↓
+result["result"]["logs"]  ← List of parsed log dictionaries
+    ↓
+For each log:
+  - Extract: log["level"]
+  - Extract: log["message"]  
+  - Extract: log["extra"]
+    ↓
+ResultOperations.create_result({
+    "log_id": ...,
+    "user_id": ...,
+    "level": level,
+    "message": message,
+    "details": json.dumps(extra),  # Stored as JSON
+    "ai_note": note,
+})
+```
+
+The parser is instantiated in `process_logs()` (line 65), iterates through all parsed log entries (line 68), and stores each entry as a separate `Result` record via `ResultOperations`.
+
 ## Limits
 
 ### Parsing Limitations
