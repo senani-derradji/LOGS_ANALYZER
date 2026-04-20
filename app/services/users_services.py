@@ -2,11 +2,13 @@ from app.models.users import Users
 from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
 from fastapi import HTTPException
 from app.security.jwt import create_access_token, verify_password
-from sqlalchemy.orm import Session
+from app.db.session import SessionLocal
+
+
 
 
 class UserOperations:
-    def __init__(self, db: Session):
+    def __init__(self, db = SessionLocal()):
         self.db = db
 
     def get_user_by_email(self, email: str):

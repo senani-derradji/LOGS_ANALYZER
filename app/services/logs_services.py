@@ -1,11 +1,11 @@
 from app.models.log import Logs
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from app.schemas.log_schema import LogCreateValidator, LogResponse
+from app.db.session import SessionLocal
 
 
 class LogsOperations:
-    def __init__(self, db: Session):
+    def __init__(self, db = SessionLocal()):
         self.db = db
 
     def get_logs(self, skip: int = 0, limit: int = 100):

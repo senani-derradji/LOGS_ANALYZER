@@ -23,7 +23,8 @@ async def worker(worker_id: int):
         if job:
 
             data = json.loads(job)
-            print(f"[WORKER {worker_id}] JOB:", data)
+            # print(f"[WORKER {worker_id}] JOB:", data)
+            print("[DATA] ", data)
 
             try:
                 await process_logs(

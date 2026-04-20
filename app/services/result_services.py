@@ -1,11 +1,12 @@
 from app.models.result import Result
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from app.schemas.result_schema import ResultResponse
+from app.db.session import SessionLocal
+
 
 
 class ResultOperations:
-    def __init__(self, db: Session):
+    def __init__(self, db = SessionLocal() ):
         self.db = db
 
     def get_results(self, skip: int = 0, limit: int = 100):
