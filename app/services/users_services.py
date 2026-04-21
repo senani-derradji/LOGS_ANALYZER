@@ -5,6 +5,7 @@ from app.security.jwt import create_access_token, verify_password
 from app.db.session import SessionLocal
 from datetime import datetime
 from typing import Optional
+from app.utils.logger import logger
 
 
 class UserOperations:
@@ -53,12 +54,12 @@ class UserOperations:
 
     def login_user(self, form_data):
         db_user = self.get_user_by_name(form_data.username)
-        print(db_user)
+        logger.debug(f"User lookup: {db_user}")
         if db_user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
         password_hash = db_user.password_hash
-        print(password_hash)
+        logger.debug(f"Password hash retrieved for user")
         if password_hash is None:
             raise HTTPException(status_code=400, detail="Invalid password")
 
