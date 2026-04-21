@@ -11,8 +11,8 @@ from app.services.logs_services import LogsOperations
 
 async def process_single_log(log, log_id, user_id):
 
-    level = log.get("level")
-    message = log.get("message")
+    level = log.get("level") or ''
+    message = log.get("message") or ''
     extra = log.get("extra")
     correlation = log.get("correlation")
     template = log.get("template")
@@ -25,18 +25,29 @@ async def process_single_log(log, log_id, user_id):
     normalized_timestamp = log.get("normalized_timestamp")
     epoch = log.get("epoch")
     line_number = log.get("line_number")
-
     note = "NO AI NOTES"
 
+    if level.lower() in ["error", "critical"] and message:
+        ai_result = ai_analyzer(message)  # no await, sync call
+
+        if ai_result is None:
+            # AI failed, keep default note
+            logger.error("AI analyzer returned None, using default note")
+        else:
+            # Safely extract the first note if present
+            ai_list = ai_result.get("AI") or []
+            if ai_list and isinstance(ai_list, list) and isinstance(ai_list[0], dict):
+                note = ai_list[0].get("note", note)
+                logger.debug(f"AI note extracted: {note}")
+            else:
+                logger.warning(f"AI result has unexpected shape: {ai_result}")
     db = SessionLocal()
 
     try:
+
         res_ops = ResultOperations(db)
 
-
-        logger.info(f"DATA BEFORE SAVED : {log_id, user_id, level, message}")
-
-        print(res_ops.create_result(
+        res_ops.create_result(
             {
                 "log_id": log_id,
                 "user_id": user_id,
@@ -57,9 +68,10 @@ async def process_single_log(log, log_id, user_id):
                 "details": extra,
                 "ai_note": note,
             }
-        ))
+        )
 
         db.commit()
+        logger.info(f"Result {log_id}-{signature} created successfully")
 
     except Exception as e:
         db.rollback()
@@ -85,7 +97,6 @@ async def process_logs(file_path: Path, log_id: int, user_id: int):
 
     logs = result["result"]["logs"]
     parsed_result = result["result"]
-    print("parsed_result", parsed_result)
 
     SEM = asyncio.Semaphore(5)
 

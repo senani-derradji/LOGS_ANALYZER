@@ -1,52 +1,95 @@
 import asyncio
 import json
+import aio_pika
 import sys
 import os
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) ; sys.path.append(BASE_DIR)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(BASE_DIR)
 
 from app.core.redis import init_redis, get_redis
 from app.core.process import process_logs
 from app.utils.logger import logger
+from app.core.config import MQ_URL
+
+
+RABBIT_URL = MQ_URL
 
 
 async def worker(worker_id: int):
 
     await init_redis()
-    redis_client = get_redis()
+    redis = get_redis()
 
-    logger.info(f"[WORKER {worker_id}] started")
+    connection = await aio_pika.connect_robust(RABBIT_URL)
+    channel = await connection.channel()
 
-    while True:
+    await channel.set_qos(prefetch_count=1)
 
-        job = await redis_client.rpop("logs_queue")
+    queue = await channel.declare_queue("logs_queue", durable=True)
 
-        if job:
+    async with queue.iterator() as queue_iter:
+        async for message in queue_iter:
 
-            data = json.loads(job)
-            logger.debug(f"[DATA] {data}")
+            async with message.process(requeue=False):
 
-            try:
-                await process_logs(
-                    data["file_path"],
-                    data["log_id"],
-                    data["user_id"]
-                )
+                data = json.loads(message.body)
+                log_id = data["log_id"]
+                retry = data.get("retry", 0)
 
-                logger.info(f"[WORKER {worker_id}] DONE log_id={data['log_id']}")
+                try:
+                    await redis.set(f"log:{log_id}:status", "processing")
 
-            except Exception as e:
-                logger.error(f"[WORKER {worker_id}] ERROR: {e}")
+                    await process_logs(
+                        data["file_path"],
+                        log_id,
+                        data["user_id"]
+                    )
 
-        else:
-            await asyncio.sleep(0.5)
+                    await redis.set(f"log:{log_id}:status", "done")
+
+                except Exception as e:
+
+                    retry += 1
+
+                    if retry < 3:
+                        await channel.default_exchange.publish(
+                            aio_pika.Message(
+                                body=json.dumps({
+                                    **data,
+                                    "retry": retry
+                                }).encode(),
+                                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+                            ),
+                            routing_key="logs_queue"
+                        )
+
+                        await redis.set(
+                            f"log:{log_id}:status",
+                            f"retrying ({retry})"
+                        )
+
+                    else:
+                        await channel.default_exchange.publish(
+                            aio_pika.Message(
+                                body=json.dumps(data).encode(),
+                                delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+                            ),
+                            routing_key="logs_dlq"
+                        )
+
+                        await redis.set(
+                            f"log:{log_id}:status",
+                            "failed"
+                        )
+
+                    logger.error(f"ERROR: {e}")
 
 
 async def main():
-
     workers = []
 
-    for i in range(1):  # adjust scale
+    for i in range(5):  # scaling
         workers.append(asyncio.create_task(worker(i)))
 
     await asyncio.gather(*workers)

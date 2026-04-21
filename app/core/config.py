@@ -5,3 +5,4 @@ env_path = Path(__file__).resolve().parent / ".env" ; load_dotenv(dotenv_path=en
 
 DATABASE = os.getenv("DATABASE_URL")
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
+MQ_URL = os.getenv("MQ_URL", "amqp://guest:guest@localhost/")
