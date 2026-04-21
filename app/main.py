@@ -1,5 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from pathlib import Path
 from app.db.session import init_db, SessionLocal
 from app.models.users import Users
 from app.security.jwt import create_password_hash
@@ -50,6 +53,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 user_routes = UserRoutes()
 router_stats = StatisticsRoutes()
 router_logs = LogsRoutes()
@@ -63,4 +74,27 @@ app.include_router(router_admin.router, prefix="/api/admin", tags=["admin"])
 
 @app.get("/")
 async def main_root():
-    return {"message": "Welcome to the Main App"}
+    return FileResponse("front/index.html")
+
+
+@app.get("/index.html")
+async def serve_index():
+    return FileResponse("front/index.html")
+
+
+@app.get("/css/{path:path}")
+async def serve_css(path: str):
+    return FileResponse(f"front/css/{path}")
+
+
+@app.get("/js/{path:path}")
+async def serve_js(path: str):
+    return FileResponse(f"front/js/{path}")
+
+
+@app.get("/libs/{path:path}")
+async def serve_libs(path: str):
+    file_path = f"front/libs/{path}"
+    if Path(file_path).is_file():
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")
