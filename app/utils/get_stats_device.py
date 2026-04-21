@@ -3,9 +3,29 @@ import platform
 import socket
 from datetime import datetime
 
-# =========================
-# Standard (basic)
-# =========================
+
+def get_redis_info():
+    from app.core.redis import get_redis
+    redis_client = get_redis()
+    if not redis_client:
+        return {"status": "disconnected"}
+
+    try:
+        info = redis_client.info()
+        return {
+            "status": "connected",
+            "version": info.get("redis_version"),
+            "uptime_seconds": info.get("uptime_in_seconds"),
+            "used_memory": info.get("used_memory_human"),
+            "used_memory_peak": info.get("used_memory_peak_human"),
+            "connected_clients": info.get("connected_clients"),
+            "total_connections_received": info.get("total_connections_received"),
+            "total_commands_processed": info.get("total_commands_processed"),
+            "keyspace": info.get("db0", {}).get("keys", 0),
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 
 
 def get_cpu_usage():
@@ -26,11 +46,6 @@ def get_basic_stats():
         "ram_usage": get_ram_usage(),
         "disk_usage": get_disk_usage(),
     }
-
-
-# =========================
-# Advanced (extended)
-# =========================
 
 
 def get_system_info():
@@ -114,5 +129,6 @@ def get_full_stats():
         "swap": get_swap_info(),
         "disk": get_disk_info(),
         "network": get_network_info(),
+        # "redis": get_redis_info(),
         "time": datetime.utcnow().isoformat(),
     }

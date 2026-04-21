@@ -15,7 +15,7 @@ def setup_logging(log_level: str = "INFO", log_dir: str = "logs_anz"):
 
         "formatters": {
             "standard": {
-                "format": "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+                "format": "%(asctime)s | %(levelname)s | %(message)s"
             },
         },
 
@@ -54,7 +54,3 @@ setup_logging()
 
 # Usage anywhere in your project
 logger = logging.getLogger(__name__)
-
-logger.info("System started")
-logger.warning("This is a warning")
-logger.error("Something failed")
