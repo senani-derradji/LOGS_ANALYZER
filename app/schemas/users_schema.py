@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     telegram_chat_id: str
+    invitation_token: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -45,3 +46,28 @@ class UserInDB(BaseModel):
     role: str
     telegram_chat_id: None | str
     created_at: datetime
+
+
+class InviteCreate(BaseModel):
+    email: EmailStr
+
+
+class InviteResponse(BaseModel):
+    token: str
+    expires_at: datetime
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+
+class UsageResponse(BaseModel):
+    tier: str
+    quota: int
+    usage: int
+    remaining: int

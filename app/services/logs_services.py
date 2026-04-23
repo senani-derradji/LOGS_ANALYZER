@@ -32,7 +32,7 @@ class LogsOperations:
         else:
             raise HTTPException(status_code=404, detail="Logs not found")
 
-    def create_log(self, log_data: LogCreateValidator, user_id: int):
+    def create_log(self, log_data: LogCreateValidator, user_id: int, tenant_id: str):
         logger.info(f"Creating log: {log_data.file_name}")
 
         if (
@@ -51,10 +51,12 @@ class LogsOperations:
             file_size = os.path.getsize(str(log_data.file_path)) if os.path.exists(str(log_data.file_path)) else None
 
             db_log = Logs(
+                tenant_id=tenant_id,
                 file_path=str(log_data.file_path),
                 file_name=log_data.file_name,
                 status=log_data.status,
                 file_size=file_size,
+                storage_size=file_size or 0,
                 user_id=user_id,
             )
 

@@ -8,12 +8,14 @@ class Logs(Base):
     __tablename__ = "logs"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String(36), index=True, nullable=False)
 
     file_path = Column(String(512), index=True, unique=True, nullable=False)
     file_name = Column(String(128), index=True, nullable=False)
     status = Column(String(20), default="pending")
 
     file_size = Column(Integer, nullable=True)
+    storage_size = Column(Integer, default=0)
     total_lines = Column(Integer, default=0)
     parsed_lines = Column(Integer, default=0)
     unknown_lines = Column(Integer, default=0)

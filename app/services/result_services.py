@@ -68,6 +68,7 @@ class ResultOperations:
     def create_result(self, result_data: dict):
         try:
             db_result = Result(
+                tenant_id=result_data["tenant_id"],
                 log_id=result_data["log_id"],
                 user_id=result_data["user_id"],
                 line_number=result_data.get("line_number"),

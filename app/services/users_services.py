@@ -3,9 +3,16 @@ from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
 from fastapi import HTTPException
 from app.security.jwt import create_access_token, verify_password
 from app.db.session import SessionLocal
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, Dict
 from app.utils.logger import logger
+
+
+TIER_QUOTAS = {
+    "free": 100,
+    "pro": 1000,
+    "enterprise": 100000,
+}
 
 
 class UserOperations:
@@ -50,6 +57,45 @@ class UserOperations:
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
+    def check_quota(self, user: Users) -> Dict[str, any]:
+        tier = user.subscription_tier or "free"
+        quota = user.monthly_quota or TIER_QUOTAS.get(tier, TIER_QUOTAS["free"])
+        usage = user.api_usage_current_month or 0
+
+        if user.subscription_expires_at and user.subscription_expires_at < datetime.utcnow():
+            tier = "free"
+            quota = TIER_QUOTAS["free"]
+
+        remaining = max(0, quota - usage)
+        allowed = usage < quota
+
+        return {
+            "allowed": allowed,
+            "quota": quota,
+            "usage": usage,
+            "remaining": remaining,
+            "tier": tier,
+            "message": f"Quota: {remaining}/{quota} logs remaining" if not allowed else None
+        }
+
+    def increment_usage(self, user: Users):
+        user.api_usage_current_month = (user.api_usage_current_month or 0) + 1
+
+        now = datetime.utcnow()
+        if not user.api_usage_reset_at or user.api_usage_reset_at < now:
+            user.api_usage_current_month = 1
+            user.api_usage_reset_at = now + timedelta(days=30)
+
+        try:
+            self.db.commit()
+            self.db.refresh(user)
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+
+    def get_usage(self, user: Users) -> Dict[str, any]:
+        return self.check_quota(user)
 
 
     def login_user(self, form_data):

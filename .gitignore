@@ -1,9 +1,11 @@
 env/*
 *.db
-*.env
+*.env*
 __pycache__
 uploads/*
 .kilo/
 *test*
 *.txt
 logs_anz/
+front/*
+*.md

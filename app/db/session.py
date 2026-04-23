@@ -5,6 +5,7 @@ from app.db.base import Base
 from app.models.users import Users
 from app.models.log import Logs
 from app.models.result import Result
+from app.models.api_key import ApiKey
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

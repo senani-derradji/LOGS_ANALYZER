@@ -8,6 +8,7 @@ class Result(Base):
     __tablename__ = "results"
 
     id = Column(Integer, primary_key=True, index=True)
+    tenant_id = Column(String(36), index=True, nullable=False)
     log_id = Column(Integer, ForeignKey("logs.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 

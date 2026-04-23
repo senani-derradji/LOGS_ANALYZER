@@ -10,11 +10,18 @@ from app.api.routes_users import UserRoutes
 from app.api.routes_stats import StatisticsRoutes
 from app.api.routes_logs import LogsRoutes
 from app.api.routes_admin import AdminRoutes
+from app.api.routes_health import router as health_router
+from app.api.routes_api_keys import api_keys_router
+from app.api.routes_billing import billing_router
 from app.core.redis import init_redis, close_redis
+from app.core.config import settings
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_id import RequestIDMiddleware
 
 
 def create_super_user():
     import random
+    import uuid
 
     db = SessionLocal()
 
@@ -27,11 +34,14 @@ def create_super_user():
                 continue
             else:
                 user = Users(
+                    tenant_id=str(uuid.uuid4()),
                     name=admin,
                     email=f"{admin}@localhost.com",
                     password_hash=create_password_hash("admin"),
                     telegram_chat_id=random.randint(1000000000, 9999999999),
                     role="admin",
+                    subscription_tier="free",
+                    monthly_quota=100,
                 )
 
                 db.add(user)
@@ -51,14 +61,26 @@ async def lifespan(app: FastAPI):
     await close_redis()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Log Analyzer API",
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=not settings.is_production,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(RequestIDMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    calls=settings.RATE_LIMIT_PER_MINUTE,
+    period=60,
+    key_prefix="rate_limit"
 )
 
 user_routes = UserRoutes()
@@ -66,35 +88,39 @@ router_stats = StatisticsRoutes()
 router_logs = LogsRoutes()
 router_admin = AdminRoutes()
 
-app.include_router(user_routes.router, prefix="/api/users", tags=["users"])
-app.include_router(router_stats.router, prefix="/api/stats", tags=["stats"])
-app.include_router(router_logs.router, prefix="/api/logs", tags=["logs"])
-app.include_router(router_admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(health_router, tags=["health"])
+
+app.include_router(user_routes.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(router_stats.router, prefix="/api/v1/stats", tags=["stats"])
+app.include_router(router_logs.router, prefix="/api/v1/logs", tags=["logs"])
+app.include_router(router_admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"])
+app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
 
 
-@app.get("/")
-async def main_root():
-    return FileResponse("front/index.html")
+# @app.get("/")
+# async def main_root():
+#     return FileResponse("front/index.html")
 
 
-@app.get("/index.html")
-async def serve_index():
-    return FileResponse("front/index.html")
+# @app.get("/index.html")
+# async def serve_index():
+#     return FileResponse("front/index.html")
 
 
-@app.get("/css/{path:path}")
-async def serve_css(path: str):
-    return FileResponse(f"front/css/{path}")
+# @app.get("/css/{path:path}")
+# async def serve_css(path: str):
+#     return FileResponse(f"front/css/{path}")
 
 
-@app.get("/js/{path:path}")
-async def serve_js(path: str):
-    return FileResponse(f"front/js/{path}")
+# @app.get("/js/{path:path}")
+# async def serve_js(path: str):
+#     return FileResponse(f"front/js/{path}")
 
 
-@app.get("/libs/{path:path}")
-async def serve_libs(path: str):
-    file_path = f"front/libs/{path}"
-    if Path(file_path).is_file():
-        return FileResponse(file_path)
-    raise HTTPException(status_code=404, detail="File not found")
+# @app.get("/libs/{path:path}")
+# async def serve_libs(path: str):
+#     file_path = f"front/libs/{path}"
+#     if Path(file_path).is_file():
+#         return FileResponse(file_path)
+#     raise HTTPException(status_code=404, detail="File not found")

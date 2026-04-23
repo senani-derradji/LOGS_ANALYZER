@@ -11,6 +11,10 @@ from app.services.result_services import ResultOperations
 from app.utils.delete_file import delete_file
 from app.utils.logger import logger
 from app.core.redis import get_redis
+from app.core.rabbitmq import send_log_job
+from app.services.upload_service import upload_stream_to_r2
+
+
 
 
 class LogsRoutes:
@@ -36,6 +40,19 @@ class LogsRoutes:
     ):
         user_data = user_ops.get_user_by_email(user.get("sub"))
 
+        if not user_data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if not user_data.tenant_id:
+            raise HTTPException(status_code=400, detail="User tenant not configured")
+
+        quota = user_ops.check_quota(user_data)
+        if not quota.get("allowed"):
+            raise HTTPException(
+                status_code=403,
+                detail=quota.get("message", "Quota exceeded")
+            )
+
         if not file:
             raise HTTPException(status_code=400, detail="No file uploaded")
 
@@ -51,6 +68,15 @@ class LogsRoutes:
             shutil.copyfileobj(file.file, buffer)
 
 
+        background_tasks.add_task(
+            upload_stream_to_r2,
+            file_path,
+            user.get("sub").split("@")[0],
+            file_path.name,
+            user_data.id
+            )
+
+
         save_log = logs_ops.create_log(
             log_data=LogCreateValidator(
                 file_path=str(file_path),
@@ -58,17 +84,29 @@ class LogsRoutes:
                 status="pending"
             ),
             user_id=user_data.id,
+            tenant_id=user_data.tenant_id,
         )
 
+        user_ops.increment_usage(user_data)
 
-        redis_client = get_redis()
         job_data = {
+
             "file_path": str(file_path),
             "log_id": save_log.id,
-            "user_id": user_data.id
+            "user_id": user_data.id,
+            "tenant_id": user_data.tenant_id,
+            "retry": 0
         }
 
-        await redis_client.lpush(f"logs_queue", json.dumps(job_data))
+
+        await send_log_job(job_data)
+        redis_client = get_redis()
+        await redis_client.set(
+            f"log:{job_data.get('log_id')}:status",
+            "queued",
+            ex=3600
+        )
+
 
         return {
             "filename": file.filename,
@@ -81,7 +119,7 @@ class LogsRoutes:
         self,
         skip: int = 0,
         limit: int = 100,
-        
+
         logs_ops: LogsOperations = Depends(get_log_ops),
         user=Depends(get_current_user),
         user_ops: UserOperations = Depends(get_user_ops),

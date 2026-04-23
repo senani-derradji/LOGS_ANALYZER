@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.services.admin_services import AdminOperations, AdminLogsOperations, AdminUsersOperations, AdminResultsOperations
+from app.utils.logger import logger
 from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
 from app.schemas.log_schema import LogResponse
 from app.schemas.result_schema import ResultResponse
@@ -53,6 +54,7 @@ class AdminRoutes:
         self.router.add_api_route("/results/by-log/{log_id}", self.get_results_by_log, methods=["GET"])
         self.router.add_api_route("/results/by-user/{user_id}", self.get_results_by_user, methods=["GET"])
         self.router.add_api_route("/results/bulk-delete", self.bulk_delete_results, methods=["POST"])
+        
 
     async def get_dashboard_stats(self, admin=Depends(require_admin)) -> Dict[str, Any]:
         ops = AdminOperations()
@@ -121,9 +123,8 @@ class AdminRoutes:
     async def create_user(self, user_data: UserCreate, admin=Depends(require_admin)):
         from app.security.jwt import create_password_hash
         ops = AdminUsersOperations()
-        # user_data = user.model_dump()
         user_data.password = create_password_hash(user_data.password)
-        print("USER: DATA :: ", user_data)
+        logger.info(f"Creating user: {user_data.email}")
         return ops.create_user(user_data)
 
     async def update_user(self, user_id: int, user_data: Dict[str, Any], admin=Depends(require_admin)):

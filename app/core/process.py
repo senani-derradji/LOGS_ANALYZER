@@ -7,9 +7,11 @@ from pathlib import Path
 from app.db.session import SessionLocal
 from app.services.result_services import ResultOperations
 from app.services.logs_services import LogsOperations
+from app.services.users_services import UserOperations
 
 
-async def process_single_log(log, log_id, user_id):
+async def process_single_log(tenant_id, log, log_id, user_id):
+    # tenant_id = log.get("tenant_id") or None
 
     level = log.get("level") or ''
     message = log.get("message") or ''
@@ -49,6 +51,7 @@ async def process_single_log(log, log_id, user_id):
 
         res_ops.create_result(
             {
+                "tenant_id": tenant_id,
                 "log_id": log_id,
                 "user_id": user_id,
                 "line_number": line_number,
@@ -99,10 +102,12 @@ async def process_logs(file_path: Path, log_id: int, user_id: int):
     parsed_result = result["result"]
 
     SEM = asyncio.Semaphore(5)
+    user_ops = UserOperations(db)
+    user = user_ops.get_user_by_id(user_id) ; tenant_id = user.tenant_id if user else None
 
     async def limited_task(log):
         async with SEM:
-            await process_single_log(log, log_id, user_id)
+            await process_single_log(tenant_id, log, log_id, user_id)
 
     tasks = [limited_task(log) for log in logs]
 

@@ -4,15 +4,12 @@ from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.hash import sha256_crypt
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
+from app.core.config import settings
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/login")
-sec_key = os.getenv("SECRET_KEY", "secret")
-alg = os.getenv("ALGORITHM", "HS256")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/users/login")
+sec_key = settings.SECRET_KEY
+alg = settings.ALGORITHM
 
 
 def create_password_hash(password):
