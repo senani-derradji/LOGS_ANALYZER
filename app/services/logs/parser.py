@@ -319,7 +319,7 @@ def make_template(message: str) -> str:
 
 def make_signature(log_type: str, level: str, template: str) -> str:
     base = f"{log_type}|{level}|{template}"
-    return hashlib.sha1(base.encode("utf-8")).hexdigest()[:16]
+    return hashlib.sha1(base.encode("utf-8")).hexdigest()
 
 
 def extract_correlation_fields(text: str, extra: dict | None = None) -> dict:
