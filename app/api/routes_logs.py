@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from pathlib import Path
 import shutil , json , os
+from typing import Optional
 from app.security.jwt import get_current_user
 from app.schemas.log_schema import LogCreateValidator
 from app.schemas.result_schema import ResultResponse
@@ -25,6 +26,7 @@ class LogsRoutes:
         self.router.add_api_route("/", self.get_logs, methods=["GET"])
         self.router.add_api_route("/{log_id}", self.get_log, methods=["GET"])
         self.router.add_api_route("/{log_id}", self.delete_log, methods=["DELETE"])
+        self.router.add_api_route("/{log_id}/results", self.get_log_results, methods=["GET"])
 
         self.upload_dir = Path("uploads")
         self.upload_dir.mkdir(exist_ok=True)
@@ -46,7 +48,38 @@ class LogsRoutes:
         if not user_data.tenant_id:
             raise HTTPException(status_code=400, detail="User tenant not configured")
 
+        file_size = file.size
+        logger.info(f"File size: {file_size}")
+
+
+        if user_data.subscription_tier == "free":
+            if user_data.monthly_quota <= user_data.api_usage_current_month:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Quota exceeded"
+                )
+            if file_size > 1.01 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=400,
+                    detail="File size exceeds 1MB"
+                )
+
+        elif user_data.subscription_tier == "pro":
+            if file_size > 5.01 * 1024 * 1024:
+                raise HTTPException(
+                    status_code=400,
+                    detail="File size exceeds 5MB"
+                )
+
+            if user_data.monthly_quota <= user_data.api_usage_current_month:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Quota exceeded"
+                )
+
         quota = user_ops.check_quota(user_data)
+        logger.info(f"Quota: {quota}")
+
         if not quota.get("allowed"):
             raise HTTPException(
                 status_code=403,
@@ -81,7 +114,10 @@ class LogsRoutes:
             log_data=LogCreateValidator(
                 file_path=str(file_path),
                 file_name=file.filename,
-                status="pending"
+                status="pending",
+                file_size=file_size,
+                user_id=user_data.id,
+                tenant_id=user_data.tenant_id,
             ),
             user_id=user_data.id,
             tenant_id=user_data.tenant_id,
@@ -107,6 +143,9 @@ class LogsRoutes:
             ex=3600
         )
 
+        quota = user_ops.check_quota(user_data)
+        logger.info(f"Quota: {quota}")
+
 
         return {
             "filename": file.filename,
@@ -129,24 +168,27 @@ class LogsRoutes:
 
         if not logs:
             raise HTTPException(status_code=404, detail="Logs not found")
-
-
         return logs
-
 
     async def get_log(
         self,
         log_id: int,
         logs_ops: LogsOperations = Depends(get_log_ops),
         user=Depends(get_current_user),
+        user_ops: UserOperations = Depends(get_user_ops),
     ):
         log = logs_ops.get_log_by_id(log_id)
-
+        user_id = user_ops.get_user_by_email(user.get("sub")).id
         if not log:
             raise HTTPException(status_code=404, detail="Log not found")
 
-        return log
+        if log.user_id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to delete this log"
+            )
 
+        return log
 
     async def delete_log(
         self,
@@ -175,5 +217,30 @@ class LogsRoutes:
         except FileNotFoundError:
             logger.error(f"File not found: {log.file_path}")
 
-
         return {"message": "Log deleted successfully"}
+
+    async def get_log_results(
+        self,
+        log_id: int,
+        skip: int = 0,
+        limit: int = 100,
+        level: Optional[str] = None,
+        logs_ops: LogsOperations = Depends(get_log_ops),
+        res_ops: ResultOperations = Depends(get_result_ops),
+        user=Depends(get_current_user),
+        user_ops: UserOperations = Depends(get_user_ops),
+    ):
+        log = logs_ops.get_log_by_id(log_id)
+        user_id = user_ops.get_user_by_email(user.get("sub")).id
+
+        if not log:
+            raise HTTPException(status_code=404, detail="Log not found")
+
+        if log.user_id != user_id:
+            raise HTTPException(
+                status_code=403,
+                detail="You are not authorized to view results for this log"
+            )
+
+        results = res_ops.get_results_by_log_and_user(log_id, user_id, skip, limit, level)
+        return results

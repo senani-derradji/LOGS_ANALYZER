@@ -17,6 +17,7 @@ from app.security.jwt import require_admin
 
 from app.middleware.rate_limit import check_rate_limit
 from fastapi import Request
+from app.utils.check_tier import check
 
 
 
@@ -65,7 +66,7 @@ class UserRoutes:
         tenant_id = str(uuid.uuid4())
         password_hash = create_password_hash(user_data.password)
 
-        user_ops
+        # user_ops
 
         new_user = Users(
             tenant_id=tenant_id,
@@ -74,9 +75,12 @@ class UserRoutes:
             password_hash=password_hash,
             telegram_chat_id=user_data.telegram_chat_id,
             role="user",
-            subscription_tier="free",
-            monthly_quota=100,
+            subscription_tier=user_data.subscription_tier,
+            monthly_quota=check(user_data.subscription_tier),
             api_usage_current_month=0,
+            api_usage_reset_at=datetime.utcnow() + timedelta(days=30),
+            invitation_token=user_data.invitation_token,
+            invitation_expires_at=datetime.utcnow() + timedelta(days=7) if user_data.invitation_token else None,
         )
 
         user_ops.db.add(new_user)

@@ -30,6 +30,28 @@ class ResultOperations:
         else:
             raise HTTPException(status_code=404, detail="Results not found")
 
+    def get_results_by_log_and_user(self, log_id: int, user_id: int, skip: int = 0, limit: int = 100, level: Optional[str] = None):
+        query = self.db.query(Result).filter(
+            Result.log_id == log_id,
+            Result.user_id == user_id
+        )
+
+        if level:
+            query = query.filter(Result.level == level)
+
+        results = query.offset(skip).limit(limit).all()
+        if results is not None:
+            return results
+        else:
+            return []
+
+    def get_results_by_user(self, user_id: int):
+        results = self.db.query(Result).filter(Result.user_id == user_id).all()
+        if results is not None:
+            return results
+        else:
+            raise HTTPException(status_code=404, detail="Results not found")
+
     def get_results_by_level(self, level: str):
         results = self.db.query(Result).filter(Result.level == level).all()
         if results is not None:

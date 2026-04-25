@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
+from fastapi import HTTPException
 
 
 class UserCreate(BaseModel):
@@ -8,14 +9,21 @@ class UserCreate(BaseModel):
     password: str
     telegram_chat_id: str
     invitation_token: str | None = None
+    subscription_tier: str = "free"
+    @field_validator("subscription_tier")
+    @classmethod
+    def validate_email(cls, v):
+        if v not in ["free", "premium"]:
+            raise HTTPException(status_code=400, detail="subscription_tier must be free or premium")
+        return v
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, v):
         if len(v) > 50:
-            raise ValueError("name must be less than 50 characters")
+            raise HTTPException(status_code=400, detail="name must be less than 50 characters")
         if not v or len(v) < 1:
-            raise ValueError("name is required")
+            raise HTTPException(status_code=400, detail="name is required")
         return v
 
     class Config:
@@ -32,7 +40,7 @@ class UserUpdate(BaseModel):
     @classmethod
     def validate_name(cls, v):
         if v and len(v) > 50:
-            raise ValueError("name must be less than 50 characters")
+            raise HTTPException(status_code=400, detail="name must be less than 50 characters")
         return v
 
     class Config:

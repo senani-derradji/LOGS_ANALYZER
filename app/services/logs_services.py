@@ -42,10 +42,6 @@ class LogsOperations:
         ):
             raise HTTPException(status_code=400, detail="Log already exists")
 
-        if self.db.query(Logs).filter(Logs.user_id == user_id).count() >= 2:
-            raise HTTPException(
-                status_code=400, detail="Maximum number of logs reached for this user"
-            )
 
         try:
             file_size = os.path.getsize(str(log_data.file_path)) if os.path.exists(str(log_data.file_path)) else None

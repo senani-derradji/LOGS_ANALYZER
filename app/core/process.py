@@ -8,6 +8,7 @@ from app.db.session import SessionLocal
 from app.services.result_services import ResultOperations
 from app.services.logs_services import LogsOperations
 from app.services.users_services import UserOperations
+from fastapi import HTTPException
 
 
 async def process_single_log(tenant_id, log, log_id, user_id):
@@ -103,7 +104,7 @@ async def process_logs(file_path: Path, log_id: int, user_id: int):
 
     SEM = asyncio.Semaphore(5)
     user_ops = UserOperations(db)
-    user = user_ops.get_user_by_id(user_id) ; tenant_id = user.tenant_id if user else None
+    user = user_ops.get_user_by_id(user_id) ; tenant_id = user.tenant_id if user else HTTPException(status_code=404, detail="Something went wrong")
 
     async def limited_task(log):
         async with SEM:

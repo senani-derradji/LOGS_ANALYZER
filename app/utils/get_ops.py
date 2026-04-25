@@ -9,7 +9,6 @@ from app.services.result_services import ResultOperations
 def get_user_ops(db: Session = Depends(get_db)):
     return UserOperations(db)
 
-
 def get_log_ops(db: Session = Depends(get_db)):
     return LogsOperations(db)
 
