@@ -60,12 +60,23 @@ class UserOperations:
 
     def check_quota(self, user: Users) -> Dict[str, any]:
         tier = user.subscription_tier or "free"
-        quota = user.monthly_quota or TIER_QUOTAS.get(tier, TIER_QUOTAS["free"])
-        usage = user.api_usage_current_month or 0
+
+        try:
+            quota = int(user.monthly_quota)
+        except (TypeError, ValueError):
+            quota = TIER_QUOTAS.get(tier, TIER_QUOTAS["free"])
+
+        usage = int(user.api_usage_current_month or 0)
 
         if user.subscription_expires_at and user.subscription_expires_at < datetime.utcnow():
             tier = "free"
             quota = TIER_QUOTAS["free"]
+
+        logger.info(f"Quota: {quota}")
+        logger.info(f"Usage: {usage}")
+        logger.info(f"Tier: {tier}")
+
+        logger.info(f"RESULT {user.subscription_expires_at} - {datetime.utcnow()}: {user.subscription_expires_at and user.subscription_expires_at < datetime.utcnow()}")
 
         remaining = max(0, quota - usage)
         allowed = usage < quota
@@ -76,7 +87,7 @@ class UserOperations:
             "usage": usage,
             "remaining": remaining,
             "tier": tier,
-            "message": f"Quota: {remaining}/{quota} logs remaining" if not allowed else None
+            "message": f"Quota exceeded ({usage}/{quota})" if not allowed else None
         }
 
     def increment_usage(self, user: Users):
@@ -182,4 +193,3 @@ class UserOperations:
             raise HTTPException(status_code=500, detail=str(e))
         return db_user
 
-    

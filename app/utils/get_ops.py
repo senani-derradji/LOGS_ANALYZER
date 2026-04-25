@@ -14,4 +14,3 @@ def get_log_ops(db: Session = Depends(get_db)):
 
 def get_result_ops(db: Session = Depends(get_db)):
     return ResultOperations(db)
-

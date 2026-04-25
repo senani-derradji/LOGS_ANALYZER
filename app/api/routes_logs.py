@@ -42,6 +42,9 @@ class LogsRoutes:
     ):
         user_data = user_ops.get_user_by_email(user.get("sub"))
 
+        quota = user_ops.check_quota(user_data)
+        logger.info(f"Quota: {quota}")
+
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
 
@@ -50,6 +53,9 @@ class LogsRoutes:
 
         file_size = file.size
         logger.info(f"File size: {file_size}")
+        logger.info(f"User data: {user_data}")
+        logger.info(f"User tier: {user_data.subscription_tier}")
+
 
 
         if user_data.subscription_tier == "free":
@@ -76,9 +82,6 @@ class LogsRoutes:
                     status_code=403,
                     detail="Quota exceeded"
                 )
-
-        quota = user_ops.check_quota(user_data)
-        logger.info(f"Quota: {quota}")
 
         if not quota.get("allowed"):
             raise HTTPException(
@@ -143,8 +146,6 @@ class LogsRoutes:
             ex=3600
         )
 
-        quota = user_ops.check_quota(user_data)
-        logger.info(f"Quota: {quota}")
 
 
         return {
@@ -163,8 +164,9 @@ class LogsRoutes:
         user=Depends(get_current_user),
         user_ops: UserOperations = Depends(get_user_ops),
     ):
-        user_id = user_ops.get_user_by_email(user.get("sub")).id
-        logs = logs_ops.get_logs_by_user(user_id)
+        logs = logs_ops.get_logs(user_id=user_ops.get_user_by_email(user.get("sub")).id,
+                                 skip=skip,
+                                 limit=limit)
 
         if not logs:
             raise HTTPException(status_code=404, detail="Logs not found")
@@ -179,13 +181,14 @@ class LogsRoutes:
     ):
         log = logs_ops.get_log_by_id(log_id)
         user_id = user_ops.get_user_by_email(user.get("sub")).id
+
         if not log:
             raise HTTPException(status_code=404, detail="Log not found")
 
         if log.user_id != user_id:
             raise HTTPException(
                 status_code=403,
-                detail="You are not authorized to delete this log"
+                detail="You are not authorized to get this log"
             )
 
         return log

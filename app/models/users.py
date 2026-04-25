@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 
@@ -20,7 +20,7 @@ class Users(Base):
     last_login = Column(DateTime, nullable=True)
 
     subscription_tier = Column(String(20), default="free")
-    subscription_expires_at = Column(DateTime, nullable=True)
+    subscription_expires_at = Column(DateTime, nullable=True, default=datetime.utcnow() + timedelta(days=30))
     monthly_quota = Column(Integer, default=100)
     api_usage_current_month = Column(Integer, default=0)
     api_usage_reset_at = Column(DateTime, nullable=True)

@@ -54,7 +54,7 @@ class AdminRoutes:
         self.router.add_api_route("/results/by-log/{log_id}", self.get_results_by_log, methods=["GET"])
         self.router.add_api_route("/results/by-user/{user_id}", self.get_results_by_user, methods=["GET"])
         self.router.add_api_route("/results/bulk-delete", self.bulk_delete_results, methods=["POST"])
-        
+
 
     async def get_dashboard_stats(self, admin=Depends(require_admin)) -> Dict[str, Any]:
         ops = AdminOperations()
@@ -83,7 +83,7 @@ class AdminRoutes:
         admin=Depends(require_admin)
     ):
         ops = AdminLogsOperations()
-        return ops.get_logs(skip=skip, limit=limit)
+        return ops.get_logs_admin(skip=skip, limit=limit)
 
     async def get_log(self, log_id: int, admin=Depends(require_admin)):
         ops = AdminLogsOperations()

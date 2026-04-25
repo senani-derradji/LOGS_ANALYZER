@@ -134,6 +134,14 @@ class AdminLogsOperations(LogsOperations):
         else:
             raise HTTPException(status_code=404, detail="Logs not found")
 
+
+    def get_logs_admin(self, skip: int = 0, limit: int = 100):
+        logs = self.db.query(Logs).offset(skip).limit(limit).all()
+        if logs is not None:
+            return logs
+        else:
+            raise HTTPException(status_code=404, detail="Logs not found")
+
     def update_log(self, log_id: int, log_data: dict):
         db_log = self.get_log_by_id(log_id)
         for key, value in log_data.items():

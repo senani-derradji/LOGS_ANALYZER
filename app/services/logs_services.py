@@ -11,8 +11,10 @@ class LogsOperations:
     def __init__(self, db = SessionLocal()):
         self.db = db
 
-    def get_logs(self, skip: int = 0, limit: int = 100):
-        logs = self.db.query(Logs).offset(skip).limit(limit).all()
+    def get_logs(self, user_id: int, skip: int = 0, limit: int = 100):
+        logs = self.db.query(Logs).filter(
+                Logs.user_id == user_id
+            ).offset(skip).limit(limit).all()
         if logs is not None:
             return logs
         else:
@@ -26,6 +28,7 @@ class LogsOperations:
             raise HTTPException(status_code=404, detail="Logs not found")
 
     def get_logs_by_user(self, user_id: int):
+
         logs = self.db.query(Logs).filter(Logs.user_id == user_id).all()
         if logs is not None:
             return logs

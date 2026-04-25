@@ -19,34 +19,54 @@ from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 
 
-def create_super_user():
+def create_default_users():
+
     import random
     import uuid
 
     db = SessionLocal()
 
     try:
-        admins = ["derradji", "admin"]
+        users_data = [
+            {
+                "name": "derradji",
+                "email": "derradji@localhost.com",
+                "password": "admin",
+                "role": "admin",
+            },
+            {
+                "name": "admin",
+                "email": "admin@localhost.com",
+                "password": "admin",
+                "role": "admin",
+            },
+            {
+                "name": "user",
+                "email": "user@example.com",
+                "password": "password",
+                "role": "user",
+            },
+        ]
 
-        for admin in admins:
-            user = db.query(Users).filter(Users.name == admin).first()
-            if user:
+        for u in users_data:
+            existing = db.query(Users).filter(Users.email == u["email"]).first()
+            if existing:
                 continue
-            else:
-                user = Users(
-                    tenant_id=str(uuid.uuid4()),
-                    name=admin,
-                    email=f"{admin}@localhost.com",
-                    password_hash=create_password_hash("admin"),
-                    telegram_chat_id=random.randint(1000000000, 9999999999),
-                    role="admin",
-                    subscription_tier="free",
-                    monthly_quota=100,
-                )
 
-                db.add(user)
-                db.commit()
-                db.refresh(user)
+            user = Users(
+                tenant_id=str(uuid.uuid4()),
+                name=u["name"],
+                email=u["email"],
+                password_hash=create_password_hash(u["password"]),
+                telegram_chat_id=random.randint(1000000000, 9999999999),
+                role=u["role"],
+                subscription_tier="free",
+                monthly_quota=100,
+            )
+
+            db.add(user)
+
+        db.commit()
 
     finally:
         db.close()
@@ -55,7 +75,7 @@ def create_super_user():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    create_super_user()
+    create_default_users()
     await init_redis()
     yield
     await close_redis()
