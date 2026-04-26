@@ -62,6 +62,16 @@ def create_default_users():
                 role=u["role"],
                 subscription_tier="free",
                 monthly_quota=100,
+                email_verified=True,
+                is_active=True,
+                is_verified=True,
+                api_usage_current_month=0,
+                api_usage_reset_at=None,
+                subscription_expires_at=None,
+                password_reset_token=None,
+                password_reset_expires_at=None,
+                invitation_token=None,
+                invitation_expires_at=None,
             )
 
             db.add(user)
