@@ -18,7 +18,7 @@ from app.security.jwt import require_admin
 from app.middleware.rate_limit import check_rate_limit
 from fastapi import Request
 from app.utils.check_tier import check
-from app.utils.notification_manager import send_welcome_email, send_verification_email
+from app.utils.notification_manager import send_welcome_email, send_verification_email, send_reset_password_email
 from app.utils.logger import logger
 
 
@@ -83,6 +83,12 @@ class UserRoutes:
         existing = user_ops.get_user_by_email(user_data.email)
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
+
+        email_hash = user_data.invitation_token.split("****")[-1]
+        verify_email_hash = verify_password(user_data.email, email_hash)
+        if not verify_email_hash:
+            raise HTTPException(status_code=400, detail="Invalid invitation token")
+
 
         tenant_id = str(uuid.uuid4())
         password_hash = create_password_hash(user_data.password)
@@ -198,10 +204,9 @@ class UserRoutes:
     ):
         user = user_ops.get_user_by_email(request.email)
         if not user:
-            ####### i need to add resent logic here - sent link of resent #######
             return {"message": "If the email exists, a reset link has been sent"}
 
-        token = secrets.token_urlsafe(32)
+        token = f"{secrets.token_urlsafe(32)}****{create_password_hash(user.email)}"
         expires_at = datetime.utcnow() + timedelta(hours=1)
 
         user.password_reset_token = token
@@ -214,6 +219,12 @@ class UserRoutes:
             reset_key,
             str(user.id),
             ex=3600
+        )
+
+        send_reset_password_email(
+            to_email=user.email,
+            name=user.name,
+            token=token,
         )
 
         return {"message": "If the email exists, a reset link has been sent"}
@@ -240,7 +251,13 @@ class UserRoutes:
             )
 
         redis_client = get_redis()
-        reset_key = f"password_reset:{request.token}"
+        token_ = request.token ; email_ = request.email
+
+        if not verify_password(plain_password=email_, hashed_password=token_.split("****")[-1]):
+            raise HTTPException(status_code=400, detail="Invalid reset token")
+
+        reset_key = f"password_reset:{token_}"
+
         user_id = await redis_client.get(reset_key)
 
         if not user_id:
