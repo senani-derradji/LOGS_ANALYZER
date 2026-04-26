@@ -58,6 +58,7 @@ class InviteResponse(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
+    new_password: str
 
 
 class ResetPasswordRequest(BaseModel):

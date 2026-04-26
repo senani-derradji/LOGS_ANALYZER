@@ -20,6 +20,7 @@ from fastapi import Request
 from app.utils.check_tier import check
 from app.utils.notification_manager import send_welcome_email, send_verification_email, send_reset_password_email
 from app.utils.logger import logger
+import time
 
 
 
@@ -221,10 +222,13 @@ class UserRoutes:
             ex=3600
         )
 
+        password = create_password_hash(request.new_password)
+
         send_reset_password_email(
             to_email=user.email,
             name=user.name,
             token=token,
+            new_password=password
         )
 
         return {"message": "If the email exists, a reset link has been sent"}
@@ -267,9 +271,10 @@ class UserRoutes:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        user.password_hash = create_password_hash(request.new_password)
-        user.password_reset_token = None
-        user.password_reset_expires_at = None
+        user.password_hash = request.new_password
+        user.password_reset_token = token_.split("****")[0] or None
+        user.password_reset_expires_at = time.time() + 3600
+
         user_ops.db.commit()
 
         await redis_client.delete(reset_key)

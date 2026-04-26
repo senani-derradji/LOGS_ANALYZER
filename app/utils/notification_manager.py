@@ -206,8 +206,8 @@ def send_welcome_email(to_email: str, name: str):
     }
 
 
-def build_reset_password_email(token: str, name: str = "user"):
-    endpoint = f"{settings.DOMAIN}/api/v1/users/reset-password?token={token}"
+def build_reset_password_email(token: str, new_password: str, email: str, name: str = "user"):
+    endpoint = f"{settings.DOMAIN}/api/v1/users/reset-password?token={token}&email={email}&new_password={new_password}"
 
     return f"""
 <!DOCTYPE html>
@@ -281,10 +281,11 @@ def build_reset_password_email(token: str, name: str = "user"):
 </html>
 """
 
-def send_reset_password_email(to_email: str, name: str, token: str):
+def send_reset_password_email(to_email: str,new_pass: str, name: str, token: str):
     url = settings.EMAILURL
 
-    html_content = build_reset_password_email(token, name)
+    html_content = build_reset_password_email(email=to_email, new_password=new_pass, name=name, token=token)
+
 
     headers = {
         "Authorization": f"Bearer {settings.EMAILTOKEN}",
