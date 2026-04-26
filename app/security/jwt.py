@@ -6,7 +6,6 @@ from jose import JWTError, jwt
 from passlib.hash import sha256_crypt
 from app.core.config import settings
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/users/login")
 sec_key = settings.SECRET_KEY
 alg = settings.ALGORITHM

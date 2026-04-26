@@ -20,9 +20,13 @@ from app.middleware.request_id import RequestIDMiddleware
 
 
 def create_default_users():
-
-    import random
     import uuid
+    import random
+    from datetime import datetime, timedelta
+
+    from app.db.session import SessionLocal
+    from app.models.users import Users
+    from app.security.jwt import create_password_hash
 
     db = SessionLocal()
 
@@ -48,6 +52,8 @@ def create_default_users():
             },
         ]
 
+        now = datetime.utcnow()
+
         for u in users_data:
             existing = db.query(Users).filter(Users.email == u["email"]).first()
             if existing:
@@ -58,25 +64,32 @@ def create_default_users():
                 name=u["name"],
                 email=u["email"],
                 password_hash=create_password_hash(u["password"]),
-                telegram_chat_id=random.randint(1000000000, 9999999999),
+                telegram_chat_id=str(random.randint(1000000000, 9999999999)),
+
                 role=u["role"],
-                subscription_tier="free",
-                monthly_quota=100,
-                email_verified=True,
                 is_active=True,
-                is_verified=True,
+                email_verified=True,
+
+                subscription_tier="free",
+                subscription_expires_at=now + timedelta(days=30),
+
+                monthly_quota=100,
                 api_usage_current_month=0,
-                api_usage_reset_at=None,
-                subscription_expires_at=None,
-                password_reset_token=None,
-                password_reset_expires_at=None,
+                api_usage_reset_at=now + timedelta(days=30),
+
                 invitation_token=None,
                 invitation_expires_at=None,
+                password_reset_token=None,
+                password_reset_expires_at=None,
             )
 
             db.add(user)
 
         db.commit()
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
     finally:
         db.close()
@@ -84,6 +97,7 @@ def create_default_users():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+
     init_db()
     create_default_users()
     await init_redis()

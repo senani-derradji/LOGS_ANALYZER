@@ -40,7 +40,7 @@ class ResultOperations:
             raise HTTPException(status_code=404, detail="Results not found")
 
 
-        if level.upper() in ["ERROR", "WARNING", "INFO"]:
+        if level and level.upper() in ["ERROR", "WARNING", "INFO"]:
             query = query.filter(Result.level == level)
         else:
             raise HTTPException(status_code=400, detail="Invalid level")

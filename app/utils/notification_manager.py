@@ -87,7 +87,7 @@ def build_verification_email(name: str, verify_link: str):
 def send_verification_email(to_email: str, name: str, token: str, protocol: str = "http://" , domain: str = settings.DOMAIN):
     url = settings.EMAILURL
 
-    verify_link = f"{protocol}://{domain}/verify_email?token={token}"
+    verify_link = f"{protocol}{domain}/api/v1/users/verify_email?token={token}"
 
     html_content = build_verification_email(name, verify_link)
 
@@ -119,7 +119,7 @@ def send_verification_email(to_email: str, name: str, token: str, protocol: str 
     }
 
 
-def build_welcome_email(name: str):
+def build_welcome_email(endpoint: str, name: str):
     return f"""
 <!DOCTYPE html>
 <html>
@@ -151,7 +151,7 @@ def build_welcome_email(name: str):
       </p>
 
       <div style="text-align:center; margin:30px 0;">
-        <a href="https://your-domain.com/dashboard"
+        <a href="{endpoint}"
            style="
               background:#16a34a;
               color:#ffffff;

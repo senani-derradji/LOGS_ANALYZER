@@ -19,6 +19,7 @@ from app.middleware.rate_limit import check_rate_limit
 from fastapi import Request
 from app.utils.check_tier import check
 from app.utils.notification_manager import send_welcome_email, send_verification_email
+from app.utils.logger import logger
 
 
 
@@ -38,85 +39,53 @@ class UserRoutes:
 
     async def user_login(
         self,
+        request_limit: Request,
         form_data: OAuth2PasswordRequestForm = Depends(),
         user_ops: UserOperations = Depends(get_user_ops),
     ):
-        return user_ops.login_user(form_data=form_data)
+        client_ip = request_limit.client.host
 
-    async def verify_email(
-    self,
-    token: str,
-    user_ops: UserOperations = Depends(get_user_ops),
-    ):
-        redis_client = get_redis()
-
-        verify_key = f"email_verify:{token}"
-        email = await redis_client.get(verify_key)
-        if isinstance(email, bytes):
-            email = email.decode()
-
-        email = email.split("=")[-1].split(":")[-1]
-
-        if not email:
-            raise HTTPException(status_code=400, detail="Invalid or expired token")
-
-        user = user_ops.get_user_by_email(verify_password(email))
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        user.is_verified = True
-        user_ops.db.commit()
-
-        await redis_client.delete(verify_key)
-        send_welcome_email(
-            to_email=user.email,
-            name=user.name,
+        allowed = await check_rate_limit(
+            identifier=f"reset:{client_ip}",
+            limit=5,
+            period=300
         )
 
-        return {"message": "Email verified successfully"}
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many reset attempts, try later"
+            )
+        return user_ops.login_user(form_data=form_data)
+
+
 
     async def register(
         self,
+        request_limit: Request,
         user_data: UserCreate,
         user_ops: UserOperations = Depends(get_user_ops),
     ):
-        existing = user_ops.get_user_by_name(user_data.name)
+        client_ip = request_limit.client.host
+
+        allowed = await check_rate_limit(
+            identifier=f"reset:{client_ip}",
+            limit=5,
+            period=300
+        )
+
+        if not allowed:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many reset attempts, try later"
+            )
+
+        existing = user_ops.get_user_by_email(user_data.email)
         if existing:
-            raise HTTPException(status_code=400, detail="Username already exists")
-
-        existing_email = user_ops.get_user_by_email(user_data.email)
-        if existing_email:
             raise HTTPException(status_code=400, detail="Email already registered")
-
-        if user_data.invitation_token:
-            invite_key = f"invite:{user_data.invitation_token}"
-            redis_client = get_redis()
-            invite_data = await redis_client.get(invite_key)
-            if not invite_data:
-                raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
-            await redis_client.delete(invite_key)
 
         tenant_id = str(uuid.uuid4())
         password_hash = create_password_hash(user_data.password)
-
-        redis_client = get_redis()
-
-        token = secrets.token_urlsafe(32) # EMAIL VER TOKEN
-        verify_key = f"email_verify:{create_password_hash(user_data.email)}={token}"
-
-        await redis_client.set(
-            verify_key,
-            new_user.email,
-            ex=3600
-        )
-
-        send_verification_email(
-            to_email=new_user.email,
-            name=new_user.name,
-            token=token,
-            protocol="http",
-            domain="localhost:8000"
-        )
 
         new_user = Users(
             tenant_id=tenant_id,
@@ -124,24 +93,81 @@ class UserRoutes:
             email=user_data.email,
             password_hash=password_hash,
             telegram_chat_id=user_data.telegram_chat_id,
-            subscription_tier=user_data.subscription_tier,
-            monthly_quota=check(user_data.subscription_tier),
-            subscription_expires_at=datetime.utcnow() + timedelta(days=30),
+
+            role="user",
+            subscription_tier="free",
+            monthly_quota=100,
+
+            email_verified=False,
+            is_active=True,
+
             api_usage_current_month=0,
             api_usage_reset_at=datetime.utcnow() + timedelta(days=30),
-            invitation_token=user_data.invitation_token,
-            invitation_expires_at=datetime.utcnow() + timedelta(days=7) if user_data.invitation_token else None,
+
+            subscription_expires_at=datetime.utcnow() + timedelta(days=30),
         )
 
         user_ops.db.add(new_user)
         user_ops.db.commit()
         user_ops.db.refresh(new_user)
 
-        access_token = create_access_token(
-            data={"sub": new_user.email, "role": new_user.role}
+        redis_client = get_redis()
+
+        token = secrets.token_urlsafe(32)
+        verify_key = f"email_verify:{token}"
+
+        await redis_client.set(
+            verify_key,
+            new_user.email,
+            ex=3600,  # 1 hour
         )
 
-        return {"message": "User created. Please verify your email."}
+        logger.info(f"verify_key created: {verify_key}")
+
+        send_verification_email(
+            to_email=new_user.email,
+            name=new_user.name,
+            token=token,
+        )
+
+        return {
+            "message": "User created. Please verify your email.",
+        }
+
+    async def verify_email(
+        self,
+        token: str,
+        user_ops: UserOperations = Depends(get_user_ops),
+    ):
+        redis_client = get_redis()
+
+        verify_key = f"email_verify:{token}"
+        email = await redis_client.get(verify_key)
+
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+        if isinstance(email, bytes):
+            email = email.decode()
+
+        user = user_ops.get_user_by_email(email)
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # FIX: correct field name
+        user.email_verified = True
+        user_ops.db.commit()
+
+        await redis_client.delete(verify_key)
+
+        send_welcome_email(
+            to_email=user.email,
+            name=user.name,
+        )
+
+        return {"message": "Email verified successfully"}
 
     async def create_invite(
         self,
@@ -152,15 +178,15 @@ class UserRoutes:
     ):
 
 
-        token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + timedelta(days=7)
+        token = f"{secrets.token_urlsafe(32)}****{create_password_hash(invite_data.email)}"
+        expires_at = datetime.utcnow() + timedelta(days=1)
 
         redis_client = get_redis()
         invite_key = f"invite:{token}"
         await redis_client.set(
             invite_key,
             invite_data.email,
-            ex=7 * 24 * 60 * 60
+            ex=1 * 24 * 60 * 60
         )
 
         return InviteResponse(token=token, expires_at=expires_at)
