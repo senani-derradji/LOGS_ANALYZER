@@ -17,7 +17,6 @@ from app.services.upload_service import upload_stream_to_r2
 
 
 
-
 class LogsRoutes:
     def __init__(self):
         self.router = APIRouter()
@@ -146,12 +145,12 @@ class LogsRoutes:
             ex=3600
         )
 
-
-
         return {
             "filename": file.filename,
             "path": str(file_path),
             "message": "File uploaded successfully",
+            f"usage_{user_data.subscription_tier}": f"{quota.get('usage')}/{quota.get("remaining", 0)}",
+            "size": f"{logs_ops.get_total_size_used(user_data.id) / 1024 / 1024 : .2f} MB / {quota.get('quota', 0)} Mb",
             "status": "processing"
         }
 

@@ -140,3 +140,11 @@ class LogsOperations:
                 raise HTTPException(status_code=500, detail=str(e))
         else:
             raise HTTPException(status_code=404, detail="Logs not found")
+
+    def get_total_size_used(self, user_id: int):
+        total_size = self.db.query(Logs).filter(
+            Logs.user_id == user_id
+        ).with_entities(
+            self.db.func.sum(Logs.storage_size)
+        ).scalar()
+        return total_size or 0

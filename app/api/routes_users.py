@@ -7,7 +7,7 @@ from app.core.redis import get_redis
 
 from app.services.users_services import UserOperations
 from app.utils.get_ops import get_user_ops
-from app.security.jwt import get_current_user, create_access_token, create_password_hash
+from app.security.jwt import get_current_user, create_access_token, create_password_hash, verify_password
 from app.schemas.users_schema import (
     UserCreate, InviteCreate, InviteResponse,
     ForgotPasswordRequest, ResetPasswordRequest, UsageResponse
@@ -18,7 +18,7 @@ from app.security.jwt import require_admin
 from app.middleware.rate_limit import check_rate_limit
 from fastapi import Request
 from app.utils.check_tier import check
-
+from app.utils.notification_manager import send_welcome_email, send_verification_email
 
 
 
@@ -34,6 +34,7 @@ class UserRoutes:
         self.router.add_api_route("/forgot-password", self.forgot_password, methods=["POST"])
         self.router.add_api_route("/reset-password", self.reset_password, methods=["POST"])
         self.router.add_api_route("/usage", self.get_usage, methods=["GET"])
+        self.router.add_api_route("/verify_email", self.verify_email, methods=["GET"])
 
     async def user_login(
         self,
@@ -41,6 +42,38 @@ class UserRoutes:
         user_ops: UserOperations = Depends(get_user_ops),
     ):
         return user_ops.login_user(form_data=form_data)
+
+    async def verify_email(
+    self,
+    token: str,
+    user_ops: UserOperations = Depends(get_user_ops),
+    ):
+        redis_client = get_redis()
+
+        verify_key = f"email_verify:{token}"
+        email = await redis_client.get(verify_key)
+        if isinstance(email, bytes):
+            email = email.decode()
+
+        email = email.split("=")[-1].split(":")[-1]
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+        user = user_ops.get_user_by_email(verify_password(email))
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user.is_verified = True
+        user_ops.db.commit()
+
+        await redis_client.delete(verify_key)
+        send_welcome_email(
+            to_email=user.email,
+            name=user.name,
+        )
+
+        return {"message": "Email verified successfully"}
 
     async def register(
         self,
@@ -66,7 +99,24 @@ class UserRoutes:
         tenant_id = str(uuid.uuid4())
         password_hash = create_password_hash(user_data.password)
 
-        # user_ops
+        redis_client = get_redis()
+
+        token = secrets.token_urlsafe(32) # EMAIL VER TOKEN
+        verify_key = f"email_verify:{create_password_hash(user_data.email)}={token}"
+
+        await redis_client.set(
+            verify_key,
+            new_user.email,
+            ex=3600
+        )
+
+        send_verification_email(
+            to_email=new_user.email,
+            name=new_user.name,
+            token=token,
+            protocol="http",
+            domain="localhost:8000"
+        )
 
         new_user = Users(
             tenant_id=tenant_id,
@@ -91,7 +141,7 @@ class UserRoutes:
             data={"sub": new_user.email, "role": new_user.role}
         )
 
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"message": "User created. Please verify your email."}
 
     async def create_invite(
         self,
@@ -183,8 +233,8 @@ class UserRoutes:
 
         return {"message": "Password reset successfully"}
 
-    async def profile(self, user=Depends(get_current_user)):
-        return {"message": "Authenticated User", "user": user}
+    async def profile(self, user = Depends(get_current_user), user_ops: UserOperations = Depends(get_user_ops),):
+        return {"message": "Authenticated User", "user": user_ops.get_profile(user_email=user.get("sub"))}
 
     async def get_usage(
         self,

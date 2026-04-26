@@ -47,15 +47,6 @@ class UserUpdate(BaseModel):
         from_attributes = True
 
 
-class UserInDB(BaseModel):
-    id: int
-    name: str
-    email: EmailStr
-    role: str
-    telegram_chat_id: None | str
-    created_at: datetime
-
-
 class InviteCreate(BaseModel):
     email: EmailStr
 
@@ -75,7 +66,19 @@ class ResetPasswordRequest(BaseModel):
 
 
 class UsageResponse(BaseModel):
-    tier: str
-    quota: int
-    usage: int
-    remaining: int
+    subscription_tier: str
+    monthly_quota: int
+
+class UserInDB(BaseModel):
+    tenant_id: str
+    name: str
+    email: EmailStr
+    is_active: bool
+    api_usage_current_month: int
+    api_usage_reset_at: datetime
+    subscription_expires_at: datetime
+    email_verified: bool
+    telegram_chat_id: None | str
+
+    class Config:
+        from_attributes = True

@@ -30,7 +30,11 @@ class Settings(BaseSettings):
     CLOUDFLARE_URL: str = Field(default="", description="Cloudflare URL")
     CLOUDFLARE_BUCKET: str = Field(default="", description="Cloudflare bucket")
 
-
+    EMAILTOKEN: str = Field(default="", description="Email token")
+    EMAILURL: str = Field(default="", description="Email url")
+    COMEMAIL: str = Field(default="", description="Comemail")
+    NAMEMAIL: str = Field(default="", description="Namemail")
+    DOMAIN: str = Field(default="", description="Domain")
 
     SECRET_KEY: str = Field(default="", description="JWT secret key")
     ALGORITHM: str = Field(default="HS256", description="JWT algorithm")
@@ -80,6 +84,18 @@ def validate_settings() -> Settings:
         missing_fields.append("MQ_URL")
     if not settings.CLOUDFLARE_BUCKET:
         missing_fields.append("CLOUDFLARE_BUCKET")
+
+    if not settings.EMAILTOKEN:
+        missing_fields.append("EMAILTOKEN")
+    if not settings.EMAILURL:
+        missing_fields.append("EMAILURL")
+    if not settings.COMEMAIL:
+        missing_fields.append("COMEMAIL")
+    if not settings.NAMEMAIL:
+        missing_fields.append("NAMEMAIL")
+
+    if not settings.DOMAIN:
+        missing_fields.append("DOMAIN")
 
 
     if missing_fields and settings.ENVIRONMENT.lower() == "production":

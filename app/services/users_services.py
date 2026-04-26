@@ -120,6 +120,9 @@ class UserOperations:
         if password_hash is None:
             raise HTTPException(status_code=400, detail="Invalid password")
 
+        if db_user.email_verified is False:
+            raise HTTPException(status_code=400, detail="Email not verified")
+
         if db_user.is_active is True:
             if verify_password(form_data.password, db_user.password_hash):
                 db_user.last_login = datetime.utcnow()
@@ -192,4 +195,13 @@ class UserOperations:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
         return db_user
+
+    def get_profile(self, user_email: str):
+        db_user = self.get_user_by_email(user_email)
+        UserInDB.model_validate(db_user)
+        return {
+            "UserData": UserInDB(**db_user.__dict__) if db_user else None,
+            "Usage": self.check_quota(db_user)
+        }
+
 

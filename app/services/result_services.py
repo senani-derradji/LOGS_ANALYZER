@@ -36,8 +36,14 @@ class ResultOperations:
             Result.user_id == user_id
         )
 
-        if level:
+        if not query:
+            raise HTTPException(status_code=404, detail="Results not found")
+
+
+        if level.upper() in ["ERROR", "WARNING", "INFO"]:
             query = query.filter(Result.level == level)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid level")
 
         results = query.offset(skip).limit(limit).all()
         if results is not None:
