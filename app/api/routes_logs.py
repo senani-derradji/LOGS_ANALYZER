@@ -14,6 +14,7 @@ from app.utils.logger import logger
 from app.core.redis import get_redis
 from app.core.rabbitmq import send_log_job
 from app.services.upload_service import upload_stream_to_r2
+from app.services.api_key_auth_service import get_current_user_or_api_key
 
 
 
@@ -34,15 +35,15 @@ class LogsRoutes:
         self,
         background_tasks: BackgroundTasks,
         file: UploadFile = File(...),
-        user=Depends(get_current_user),
+        # user=Depends(get_current_user),
+        user=Depends(get_current_user_or_api_key),
         logs_ops: LogsOperations = Depends(get_log_ops),
         user_ops: UserOperations = Depends(get_user_ops),
         res_ops: ResultOperations = Depends(get_result_ops),
     ):
-        user_data = user_ops.get_user_by_email(user.get("sub"))
 
+        user_data = user_ops.get_user_by_email(user.get("sub"))
         quota = user_ops.check_quota(user_data)
-        logger.info(f"Quota: {quota}")
 
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")
@@ -50,19 +51,12 @@ class LogsRoutes:
         if not user_data.tenant_id:
             raise HTTPException(status_code=400, detail="User tenant not configured")
 
-        file_size = file.size
-        logger.info(f"File size: {file_size}")
-        logger.info(f"User data: {user_data}")
-        logger.info(f"User tier: {user_data.subscription_tier}")
 
-
+        file.file.seek(0, 2)
+        file_size = file.file.tell()
+        file.file.seek(0)
 
         if user_data.subscription_tier == "free":
-            if user_data.monthly_quota <= user_data.api_usage_current_month:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Quota exceeded"
-                )
             if file_size > 1.01 * 1024 * 1024:
                 raise HTTPException(
                     status_code=400,
@@ -76,8 +70,8 @@ class LogsRoutes:
                     detail="File size exceeds 5MB"
                 )
 
-            if user_data.monthly_quota <= user_data.api_usage_current_month:
-                raise HTTPException(
+        if user_data.monthly_quota <= user_data.api_usage_current_month:
+            raise HTTPException(
                     status_code=403,
                     detail="Quota exceeded"
                 )
@@ -87,9 +81,6 @@ class LogsRoutes:
                 status_code=403,
                 detail=quota.get("message", "Quota exceeded")
             )
-
-        if not file:
-            raise HTTPException(status_code=400, detail="No file uploaded")
 
         file_path = (
             self.upload_dir
@@ -111,15 +102,12 @@ class LogsRoutes:
             user_data.id
             )
 
-
         save_log = logs_ops.create_log(
             log_data=LogCreateValidator(
                 file_path=str(file_path),
                 file_name=file.filename,
                 status="pending",
                 file_size=file_size,
-                user_id=user_data.id,
-                tenant_id=user_data.tenant_id,
             ),
             user_id=user_data.id,
             tenant_id=user_data.tenant_id,
@@ -136,7 +124,6 @@ class LogsRoutes:
             "retry": 0
         }
 
-
         await send_log_job(job_data)
         redis_client = get_redis()
         await redis_client.set(
@@ -150,7 +137,7 @@ class LogsRoutes:
             "path": str(file_path),
             "message": "File uploaded successfully",
             f"usage_{user_data.subscription_tier}": f"{quota.get('usage')}/{quota.get("remaining", 0)}",
-            "size": f"{logs_ops.get_total_size_used(user_data.id) / 1024 / 1024 : .2f} MB / {quota.get('quota', 0)} Mb",
+            "size": f"{quota.get('usage')}/{quota.get('remaining', 0)}",
             "status": "processing"
         }
 

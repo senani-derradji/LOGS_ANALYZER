@@ -58,13 +58,23 @@ class InviteResponse(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
-    new_password: str
 
 
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     token: str
     new_password: str
+    confirm_password: str
+    # @field_validator("new_password")
+    # @classmethod
+    # def validate_password(cls, v):
+    #     if len(v) < 8:
+    #         raise HTTPException(status_code=400, detail="password must be at least 8 characters")
+    #     if not any(char.isdigit() for char in v):
+    #         raise HTTPException(status_code=400, detail="password must contain at least one digit")
+
+
+
 
 
 class UsageResponse(BaseModel):

@@ -13,6 +13,7 @@ from app.api.routes_admin import AdminRoutes
 from app.api.routes_health import router as health_router
 from app.api.routes_api_keys import api_keys_router
 from app.api.routes_billing import billing_router
+from app.api.routes_api_keys import api_keys_router
 from app.core.redis import init_redis, close_redis
 from app.core.config import settings
 from app.middleware.rate_limit import RateLimitMiddleware
@@ -140,6 +141,7 @@ app.include_router(router_logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(router_admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"])
 app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
+app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"])
 
 
 # @app.get("/")

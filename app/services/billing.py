@@ -11,8 +11,8 @@ TIER_FEATURES = {
     "free": {
         "monthly_logs": 100,
         "storage_mb": 100,
-        "api_keys": 0,
-        "webhooks": 0,
+        "api_keys": 1,
+        "webhooks": 1,
     },
     "pro": {
         "monthly_logs": 1000,

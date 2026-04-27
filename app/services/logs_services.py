@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from datetime import datetime
 import os
 from app.utils.logger import logger
+from sqlalchemy import func
 
 
 class LogsOperations:
@@ -36,7 +37,6 @@ class LogsOperations:
             raise HTTPException(status_code=404, detail="Logs not found")
 
     def create_log(self, log_data: LogCreateValidator, user_id: int, tenant_id: str):
-        logger.info(f"Creating log: {log_data.file_name}")
 
         if (
             self.db.query(Logs)
@@ -47,15 +47,15 @@ class LogsOperations:
 
 
         try:
-            file_size = os.path.getsize(str(log_data.file_path)) if os.path.exists(str(log_data.file_path)) else None
 
             db_log = Logs(
                 tenant_id=tenant_id,
                 file_path=str(log_data.file_path),
                 file_name=log_data.file_name,
                 status=log_data.status,
-                file_size=file_size,
-                storage_size=file_size or 0,
+                file_size=log_data.file_size,
+                storage_size=self.get_total_size_used(user_id) if user_id else None,
+                started_at=datetime.utcnow(),
                 user_id=user_id,
             )
 
@@ -67,6 +67,7 @@ class LogsOperations:
         except Exception as e:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+
 
     def change_status(self, log_id: int, new_status: str = "completed"):
         db_log = self.get_log_by_id(log_id)
@@ -142,9 +143,10 @@ class LogsOperations:
             raise HTTPException(status_code=404, detail="Logs not found")
 
     def get_total_size_used(self, user_id: int):
-        total_size = self.db.query(Logs).filter(
+        total_size = self.db.query(
+            func.coalesce(func.sum(Logs.storage_size), 0)
+        ).filter(
             Logs.user_id == user_id
-        ).with_entities(
-            self.db.func.sum(Logs.storage_size)
         ).scalar()
-        return total_size or 0
+
+        return total_size

@@ -13,8 +13,8 @@ from app.models.api_key import ApiKey
 
 class ApiKeyCreate(BaseModel):
     name: str
-    expires_in_days: int | None = 30
-    expired_in_hours: int | None = 24
+    # expires_in_days: int | None = 30
+    # expired_in_hours: int | None = 24
 
 
 class ApiKeyResponse(BaseModel):
@@ -44,16 +44,20 @@ async def create_api_key(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    user_db = user_ops.get_user_by_email(user.get("sub"))
+
     raw_key = f"la_{secrets.token_urlsafe(32)}"
     key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
     prefix = raw_key[:12]
 
     expires_at = None
-    if key_data.expires_in_days:
-        if user.get("role") == "admin":
-            expires_at = datetime.utcnow() + timedelta(days=key_data.expires_in_days)
-        else:
-            expires_at = datetime.utcnow() + timedelta(hours=key_data.expired_in_hours)
+
+    if user_db.subscription_tier == "free":
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+    elif user_db.subscription_tier == "pro":
+        expires_at = datetime.utcnow() + timedelta(days=30)
+    elif user_db.subscription_tier == "enterprise":
+        expires_at = datetime.utcnow() + timedelta(days=365)
 
     db = SessionLocal()
     try:

@@ -1,8 +1,10 @@
-import requests
+import httpx
 from app.core.config import settings
 
 
-
+# =========================
+# VERIFY EMAIL HTML
+# =========================
 def build_verification_email(name: str, verify_link: str):
     return f"""
 <!DOCTYPE html>
@@ -12,58 +14,29 @@ def build_verification_email(name: str, verify_link: str):
   <title>Verify Your Email</title>
 </head>
 
-<body style="margin:0; padding:0; font-family:Arial, sans-serif; background-color:#f4f6f8;">
+<body style="font-family:Arial;background:#f4f6f8;margin:0;padding:0;">
 
-  <div style="max-width:600px; margin:40px auto; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+  <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:10px;overflow:hidden;">
 
-    <!-- Header -->
-    <div style="background:#111827; padding:20px; text-align:center;">
-      <h2 style="color:#ffffff; margin:0;">Verify Your Email</h2>
+    <div style="background:#111827;padding:20px;text-align:center;">
+      <h2 style="color:white;">Verify Your Email</h2>
     </div>
 
-    <!-- Body -->
-    <div style="padding:30px; color:#333;">
+    <div style="padding:30px;">
+      <h3>Hello {name},</h3>
 
-      <h3 style="margin-top:0;">Hello {name},</h3>
+      <p>Please verify your email. Link expires in 1 hour.</p>
 
-      <p style="font-size:15px; line-height:1.6;">
-        Thank you for registering. Please verify your email address to activate your account.
-        This link will expire in <b>1 hour</b>.
-      </p>
-
-      <div style="text-align:center; margin:30px 0;">
+      <div style="text-align:center;margin:30px 0;">
         <a href="{verify_link}"
-           style="
-              background:#2563eb;
-              color:#ffffff;
-              padding:14px 24px;
-              text-decoration:none;
-              border-radius:6px;
-              font-weight:bold;
-              display:inline-block;
-           ">
+           style="background:#2563eb;color:white;padding:14px 24px;text-decoration:none;border-radius:6px;">
           Verify Email
         </a>
       </div>
 
-      <p style="font-size:13px; color:#666;">
-        If the button doesn't work, copy and paste this link:
-      </p>
-
-      <p style="font-size:12px; word-break:break-all; color:#2563eb;">
+      <p style="font-size:12px;word-break:break-all;color:#2563eb;">
         {verify_link}
       </p>
-
-      <hr style="margin:30px 0; border:none; border-top:1px solid #eee;">
-
-      <p style="font-size:12px; color:#888;">
-        If you didn’t create this account, you can ignore this email.
-      </p>
-
-    </div>
-
-    <div style="background:#f9fafb; padding:15px; text-align:center; font-size:12px; color:#999;">
-      © 2026 {settings.NAMEMAIL}. All rights reserved.
     </div>
 
   </div>
@@ -72,42 +45,47 @@ def build_verification_email(name: str, verify_link: str):
 </html>
 """
 
-def send_verification_email(to_email: str, name: str, token: str, protocol: str = "http://" , domain: str = settings.DOMAIN):
+
+# =========================
+# SEND VERIFY EMAIL (ASYNC)
+# =========================
+async def send_verification_email(to_email: str, name: str, token: str, protocol: str = "https://"):
     url = settings.EMAILURL
 
-    verify_link = f"{protocol}{domain}/api/v1/users/verify_email?token={token}"
+    verify_link = f"{protocol}{settings.DOMAIN}/api/v1/users/verify_email?token={token}"
 
     html_content = build_verification_email(name, verify_link)
-
-    headers = {
-        "Authorization": f"Bearer {settings.EMAILTOKEN}",
-        "Content-Type": "application/json"
-    }
 
     data = {
         "from": {
             "email": settings.COMEMAIL,
             "name": settings.NAMEMAIL
         },
-        "to": [
-            {
-                "email": to_email,
-                "name": name
-            }
-        ],
+        "to": [{
+            "email": to_email,
+            "name": name
+        }],
         "subject": "Verify your email",
         "html": html_content
     }
 
-    response = requests.post(url, headers=headers, json=data)
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {settings.EMAILTOKEN}",
+                "Content-Type": "application/json"
+            },
+            json=data
+        )
 
-    return {
-        "status_code": response.status_code,
-        "response": response.text
-    }
+    return response.json()
 
 
-def build_welcome_email(endpoint: str = settings.DOMAIN, name: str = "user"):
+# =========================
+# WELCOME EMAIL HTML
+# =========================
+def build_welcome_email(name: str, endpoint: str = settings.DOMAIN):
     return f"""
 <!DOCTYPE html>
 <html>
@@ -116,54 +94,26 @@ def build_welcome_email(endpoint: str = settings.DOMAIN, name: str = "user"):
   <title>Welcome</title>
 </head>
 
-<body style="margin:0; padding:0; font-family:Arial, sans-serif; background-color:#f4f6f8;">
+<body style="font-family:Arial;background:#f4f6f8;margin:0;padding:0;">
 
-  <div style="max-width:600px; margin:40px auto; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+  <div style="max-width:600px;margin:40px auto;background:#fff;border-radius:10px;overflow:hidden;">
 
-    <!-- Header -->
-    <div style="background:#16a34a; padding:20px; text-align:center;">
-      <h2 style="color:#ffffff; margin:0;">Welcome to {settings.NAMEMAIL}</h2>
+    <div style="background:#16a34a;padding:20px;text-align:center;">
+      <h2 style="color:white;">Welcome</h2>
     </div>
 
-    <!-- Body -->
-    <div style="padding:30px; color:#333;">
+    <div style="padding:30px;">
+      <h3>Hello {name} 🎉</h3>
 
-      <h3 style="margin-top:0;">Hello {name}, 🎉</h3>
+      <p>Your account is ready.</p>
 
-      <p style="font-size:15px; line-height:1.6;">
-        Welcome aboard! Your account has been created successfully.
-      </p>
-
-      <p style="font-size:15px; line-height:1.6;">
-        You can now access all features of our platform. We're excited to have you with us.
-      </p>
-
-      <div style="text-align:center; margin:30px 0;">
+      <div style="text-align:center;margin:30px 0;">
         <a href="{endpoint}"
-           style="
-              background:#16a34a;
-              color:#ffffff;
-              padding:14px 24px;
-              text-decoration:none;
-              border-radius:6px;
-              font-weight:bold;
-              display:inline-block;
-           ">
-          Go to Dashboard
+           style="background:#16a34a;color:white;padding:14px 24px;text-decoration:none;border-radius:6px;">
+          Dashboard
         </a>
       </div>
 
-      <hr style="margin:30px 0; border:none; border-top:1px solid #eee;">
-
-      <p style="font-size:12px; color:#888;">
-        If you have any questions, feel free to contact our support team.
-      </p>
-
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#f9fafb; padding:15px; text-align:center; font-size:12px; color:#999;">
-      © 2026 {settings.NAMEMAIL}. All rights reserved.
     </div>
 
   </div>
@@ -173,107 +123,69 @@ def build_welcome_email(endpoint: str = settings.DOMAIN, name: str = "user"):
 """
 
 
-def send_welcome_email(to_email: str, name: str):
+# =========================
+# SEND WELCOME EMAIL (ASYNC)
+# =========================
+async def send_welcome_email(to_email: str, name: str):
     url = settings.EMAILURL
 
     html_content = build_welcome_email(name)
 
-    headers = {
-        "Authorization": f"Bearer {settings.EMAILTOKEN}",
-        "Content-Type": "application/json"
-    }
-
     data = {
         "from": {
             "email": settings.COMEMAIL,
             "name": settings.NAMEMAIL
         },
-        "to": [
-            {
-                "email": to_email,
-                "name": name
-            }
-        ],
-        "subject": "Welcome to our platform 🎉",
+        "to": [{
+            "email": to_email,
+            "name": name
+        }],
+        "subject": "Welcome 🎉",
         "html": html_content
     }
 
-    response = requests.post(url, headers=headers, json=data)
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {settings.EMAILTOKEN}",
+                "Content-Type": "application/json"
+            },
+            json=data
+        )
 
-    return {
-        "status_code": response.status_code,
-        "response": response.text
-    }
+    return response.json()
 
 
-def build_reset_password_email(token: str, new_password: str, email: str, name: str = "user"):
-    endpoint = f"{settings.DOMAIN}/api/v1/users/reset-password?token={token}&email={email}&new_password={new_password}"
+import httpx
+from app.core.config import settings
 
+
+def build_reset_password_email(name: str, reset_link: str):
     return f"""
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
   <title>Reset Password</title>
 </head>
 
-<body style="margin:0; padding:0; font-family:Arial, sans-serif; background-color:#f4f6f8;">
+<body style="font-family:Arial;background:#f4f6f8;display:flex;justify-content:center;align-items:center;height:100vh;">
 
-  <div style="max-width:600px; margin:40px auto; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+  <div style="background:white;padding:30px;border-radius:10px;width:400px;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
 
-    <!-- Header -->
-    <div style="background:#dc2626; padding:20px; text-align:center;">
-      <h2 style="color:#ffffff; margin:0;">Reset Your Password</h2>
-    </div>
+    <h2 style="color:#dc2626;">Reset Password</h2>
 
-    <!-- Body -->
-    <div style="padding:30px; color:#333;">
+    <p>Hello {name},</p>
+    <p>Click below to reset your password:</p>
 
-      <h3 style="margin-top:0;">Hello {name},</h3>
+    <a href="{reset_link}"
+       style="display:inline-block;padding:12px 20px;background:#dc2626;color:white;text-decoration:none;border-radius:6px;">
+       Reset Password
+    </a>
 
-      <p style="font-size:15px; line-height:1.6;">
-        We received a request to reset your password. Click the button below to set a new password.
-      </p>
-
-      <p style="font-size:15px; line-height:1.6;">
-        This link will expire in <b>1 hour</b>.
-      </p>
-
-      <div style="text-align:center; margin:30px 0;">
-        <a href="{endpoint}"
-           style="
-              background:#dc2626;
-              color:#ffffff;
-              padding:14px 24px;
-              text-decoration:none;
-              border-radius:6px;
-              font-weight:bold;
-              display:inline-block;
-           ">
-          Reset Password
-        </a>
-      </div>
-
-      <p style="font-size:13px; color:#666;">
-        If the button doesn’t work, copy and paste this link:
-      </p>
-
-      <p style="font-size:12px; word-break:break-all; color:#dc2626;">
-        {endpoint}
-      </p>
-
-      <hr style="margin:30px 0; border:none; border-top:1px solid #eee;">
-
-      <p style="font-size:12px; color:#888;">
-        If you didn’t request a password reset, you can safely ignore this email.
-      </p>
-
-    </div>
-
-    <!-- Footer -->
-    <div style="background:#f9fafb; padding:15px; text-align:center; font-size:12px; color:#999;">
-      © 2026 {settings.NAMEMAIL}. All rights reserved.
-    </div>
+    <p style="font-size:12px;word-break:break-all;margin-top:20px;">
+      {reset_link}
+    </p>
 
   </div>
 
@@ -281,16 +193,13 @@ def build_reset_password_email(token: str, new_password: str, email: str, name: 
 </html>
 """
 
-def send_reset_password_email(to_email: str,new_pass: str, name: str, token: str):
+
+async def send_reset_password_email(to_email: str, name: str, token: str):
     url = settings.EMAILURL
 
-    html_content = build_reset_password_email(email=to_email, new_password=new_pass, name=name, token=token)
+    reset_link = f"{settings.DOMAIN if settings.DOMAIN.startswith('http') else 'http://' + settings.DOMAIN}/api/v1/users/reset-password-page?token={token}"
 
-
-    headers = {
-        "Authorization": f"Bearer {settings.EMAILTOKEN}",
-        "Content-Type": "application/json"
-    }
+    html_content = build_reset_password_email(name, reset_link)
 
     data = {
         "from": {
@@ -303,13 +212,26 @@ def send_reset_password_email(to_email: str,new_pass: str, name: str, token: str
                 "name": name
             }
         ],
-        "subject": "Reset your password",
+        "subject": "Reset Your Password",
         "html": html_content
     }
 
-    response = requests.post(url, headers=headers, json=data)
+    async with httpx.AsyncClient(timeout=10) as client:
+        response = await client.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {settings.EMAILTOKEN}",
+                "Content-Type": "application/json"
+            },
+            json=data
+        )
+
+    try:
+        result = response.json()
+    except Exception:
+        result = response.text
 
     return {
         "status_code": response.status_code,
-        "response": response.text
+        "response": result
     }

@@ -1,9 +1,10 @@
 import secrets
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from datetime import datetime, timedelta
 from app.core.redis import get_redis
+from fastapi.responses import HTMLResponse
 
 from app.services.users_services import UserOperations
 from app.utils.get_ops import get_user_ops
@@ -37,6 +38,7 @@ class UserRoutes:
         self.router.add_api_route("/reset-password", self.reset_password, methods=["POST"])
         self.router.add_api_route("/usage", self.get_usage, methods=["GET"])
         self.router.add_api_route("/verify_email", self.verify_email, methods=["GET"])
+        self.router.add_api_route("/reset-password-page", self.reset_password_page, methods=["GET"])
 
     async def user_login(
         self,
@@ -85,11 +87,6 @@ class UserRoutes:
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
 
-        email_hash = user_data.invitation_token.split("****")[-1]
-        verify_email_hash = verify_password(user_data.email, email_hash)
-        if not verify_email_hash:
-            raise HTTPException(status_code=400, detail="Invalid invitation token")
-
 
         tenant_id = str(uuid.uuid4())
         password_hash = create_password_hash(user_data.password)
@@ -131,7 +128,7 @@ class UserRoutes:
 
         logger.info(f"verify_key created: {verify_key}")
 
-        send_verification_email(
+        await send_verification_email(
             to_email=new_user.email,
             name=new_user.name,
             token=token,
@@ -169,7 +166,7 @@ class UserRoutes:
 
         await redis_client.delete(verify_key)
 
-        send_welcome_email(
+        await send_welcome_email(
             to_email=user.email,
             name=user.name,
         )
@@ -185,7 +182,7 @@ class UserRoutes:
     ):
 
 
-        token = f"{secrets.token_urlsafe(32)}****{create_password_hash(invite_data.email)}"
+        token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(days=1)
 
         redis_client = get_redis()
@@ -207,8 +204,10 @@ class UserRoutes:
         if not user:
             return {"message": "If the email exists, a reset link has been sent"}
 
-        token = f"{secrets.token_urlsafe(32)}****{create_password_hash(user.email)}"
         expires_at = datetime.utcnow() + timedelta(hours=1)
+        token = secrets.token_urlsafe(32)
+
+
 
         user.password_reset_token = token
         user.password_reset_expires_at = expires_at
@@ -221,22 +220,68 @@ class UserRoutes:
             str(user.id),
             ex=3600
         )
+        user_ops.db.commit()
 
-        password = create_password_hash(request.new_password)
+        logger.info(f"reset_key created: {reset_key}")
 
-        send_reset_password_email(
+
+        await send_reset_password_email(
             to_email=user.email,
             name=user.name,
             token=token,
-            new_password=password
         )
 
         return {"message": "If the email exists, a reset link has been sent"}
 
+
+
+    async def reset_password_page(self, token: str):
+
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Reset Password</title>
+        </head>
+
+        <body style="font-family:Arial;background:#f4f6f8;display:flex;justify-content:center;align-items:center;height:100vh;">
+
+            <div style="background:white;padding:30px;border-radius:10px;width:400px;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+
+                <h2 style="color:#dc2626;">Reset Password</h2>
+
+
+                <form method="POST" action="/api/v1/users/reset-password">
+
+                    <input type="hidden" name="token" value="{token}" />
+
+                    <label>New Password</label>
+                    <input type="password" name="new_password"
+                        style="width:100%;padding:10px;margin:10px 0;" required />
+
+                    <label>Confirm Password</label>
+                    <input type="password" name="confirm_password"
+                        style="width:100%;padding:10px;margin:10px 0;" required />
+
+                    <button type="submit"
+                        style="width:100%;padding:12px;background:#dc2626;color:white;border:none;border-radius:6px;">
+                        Reset Password
+                    </button>
+
+                </form>
+
+            </div>
+
+        </body>
+        </html>
+        """)
+
     async def reset_password(
         self,
         request_limit: Request,
-        request: ResetPasswordRequest,
+        token: str = Form(...),
+        new_password: str = Form(...),
+        confirm_password: str = Form(...),
         user_ops: UserOperations = Depends(get_user_ops),
     ):
 
@@ -254,13 +299,17 @@ class UserRoutes:
                 detail="Too many reset attempts, try later"
             )
 
+        if new_password and confirm_password:
+            if new_password != confirm_password:
+                raise HTTPException(status_code=400, detail="Passwords do not match")
+
+            new_password_ = create_password_hash(new_password)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid request")
+
+
+        reset_key = f"password_reset:{token}"
         redis_client = get_redis()
-        token_ = request.token ; email_ = request.email
-
-        if not verify_password(plain_password=email_, hashed_password=token_.split("****")[-1]):
-            raise HTTPException(status_code=400, detail="Invalid reset token")
-
-        reset_key = f"password_reset:{token_}"
 
         user_id = await redis_client.get(reset_key)
 
@@ -271,9 +320,13 @@ class UserRoutes:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        user.password_hash = request.new_password
-        user.password_reset_token = token_.split("****")[0] or None
-        user.password_reset_expires_at = time.time() + 3600
+        token_db_data = user_ops.get_password_reset_token_data(user.email)
+        if not token_db_data:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        user.password_hash = new_password_
+        user.password_reset_token = token
+        user.password_reset_expires_at = datetime.utcnow() + timedelta(hours=1)
 
         user_ops.db.commit()
 
@@ -294,9 +347,9 @@ class UserRoutes:
             raise HTTPException(status_code=404, detail="User not found")
 
         usage = user_ops.get_usage(db_user)
-        return UsageResponse(
-            tier=usage.get("tier"),
-            quota=usage.get("quota"),
-            usage=usage.get("usage"),
-            remaining=usage.get("remaining")
-        )
+        return {
+            "tier":usage.get("tier"),
+            "quota":usage.get("quota"),
+            "usage":usage.get("usage"),
+            "remaining":usage.get("remaining")
+        }

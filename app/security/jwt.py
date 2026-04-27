@@ -1,55 +1,73 @@
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any
+
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from passlib.hash import sha256_crypt
+
 from app.core.config import settings
 
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/users/login")
-sec_key = settings.SECRET_KEY
-alg = settings.ALGORITHM
+
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = settings.ALGORITHM
+ACCESS_TOKEN_EXPIRE_DAYS = 3
 
 
-def create_password_hash(password):
+def create_password_hash(password: str) -> str:
     if not password:
-        raise HTTPException(status_code=400, detail="Password is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password cannot be empty"
+        )
     return sha256_crypt.hash(password)
 
 
-def verify_password(plain_password, hashed_password):
+def verify_password(plain_password: str, hashed_password: str) -> bool:
     return sha256_crypt.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(days=3)):
+def create_access_token(
+    data: Dict[str, Any],
+    expires_delta: timedelta = timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS),
+) -> str:
+
     if "sub" not in data:
-        raise ValueError("Token must contain 'sub' (user identifier)")
+        raise ValueError("Token payload must include 'sub' (subject/user id)")
 
     to_encode = data.copy()
 
-    expire = datetime.now() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire})
 
-    encoded_jwt = jwt.encode(to_encode, sec_key, algorithm=alg)
-
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     try:
-        payload = jwt.decode(token, sec_key, algorithms=[alg])
-        email = payload.get("sub")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
 
-        if email is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
+        if not payload.get("sub"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token"
+            )
 
         return payload
 
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )
 
 
-def require_admin(user=Depends(get_current_user)):
+def require_admin(user: dict = Depends(get_current_user)) -> dict:
     if user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin privileges required"
+        )
     return user

@@ -35,11 +35,9 @@ class LogCreateValidator(BaseModel):
             raise HTTPException(404, "status must be pending, processing, completed or failed")
         return v
 
-    tenant_id: str
-    user_id: int
     file_size: Optional[int] = None
     storage_size: Optional[int] = None
-    
+
 
     class Config:
         from_attributes = True

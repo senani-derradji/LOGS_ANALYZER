@@ -1,7 +1,7 @@
 from app.models.users import Users
 from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
 from fastapi import HTTPException
-from app.security.jwt import create_access_token, verify_password
+from app.security.jwt import create_access_token, verify_password, create_password_hash
 from app.db.session import SessionLocal
 from datetime import datetime, timedelta
 from typing import Optional, Dict
@@ -124,6 +124,11 @@ class UserOperations:
             raise HTTPException(status_code=400, detail="Email not verified")
 
         if db_user.is_active is True:
+            logger.info(f"User is active :::: {db_user.is_active}")
+            logger.info(f"Password hash :::: {password_hash}")
+            logger.info(f"Password :::: {form_data.password}")
+            logger.info(f"Password hash :::: {create_password_hash(form_data.password)}")
+            logger.info(f"User is active :::: {verify_password(form_data.password, password_hash)}")
             if verify_password(form_data.password, db_user.password_hash):
                 db_user.last_login = datetime.utcnow()
                 self.db.commit()
@@ -203,5 +208,20 @@ class UserOperations:
             "UserData": UserInDB(**db_user.__dict__) if db_user else None,
             "Usage": self.check_quota(db_user)
         }
+
+    def get_password_reset_token_data(self, email: str):
+        db_user = self.get_user_by_email(email)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        return {
+            "token": db_user.password_reset_token,
+            "expires_at": db_user.password_reset_expires_at,
+                }
+
+    def get_user_by_token(self, token: str):
+        db_user = self.db.query(Users).filter(Users.password_reset_token == token).first()
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        return db_user.email
 
 
