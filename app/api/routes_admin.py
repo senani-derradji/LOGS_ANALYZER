@@ -1,5 +1,9 @@
 from fastapi import APIRouter, HTTPException, Depends
-from app.services.admin_services import AdminOperations, AdminLogsOperations, AdminUsersOperations, AdminResultsOperations
+from app.services.admin_services import (AdminOperations,
+                                         AdminLogsOperations,
+                                         AdminUsersOperations,
+                                         AdminResultsOperations,
+                                         AdminInviteRequestOperations)
 from app.utils.logger import logger
 from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
 from app.schemas.log_schema import LogResponse
@@ -55,6 +59,13 @@ class AdminRoutes:
         self.router.add_api_route("/results/by-user/{user_id}", self.get_results_by_user, methods=["GET"])
         self.router.add_api_route("/results/bulk-delete", self.bulk_delete_results, methods=["POST"])
 
+        self.router.add_api_route("/invites", self.get_invites, methods=["GET"])
+        self.router.add_api_route("/invites/{invite_id}", self.get_invite, methods=["GET"])
+        # self.router.add_api_route("/invites", self.create_invite, methods=["POST"])
+        # self.router.add_api_route("/invites/{invite_id}", self.update_invite, methods=["PUT"])
+        self.router.add_api_route("/invites/{invite_id}", self.delete_invite, methods=["DELETE"])
+        self.router.add_api_route("/invites/{invite_id}/status", self.change_invite_status, methods=["PATCH"])
+        self.router.add_api_route("/invites/bulk-delete", self.bulk_delete_invites, methods=["POST"])
 
     async def get_dashboard_stats(self, admin=Depends(require_admin)) -> Dict[str, Any]:
         ops = AdminOperations()
@@ -180,3 +191,27 @@ class AdminRoutes:
     async def bulk_delete_results(self, request: BulkDeleteRequest, admin=Depends(require_admin)):
         ops = AdminResultsOperations()
         return ops.bulk_delete_results(request.ids)
+
+    async def get_invites(self, skip: int = 0, limit: int = 100, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.get_all_requests(skip=skip, limit=limit)
+
+    async def create_invite(self, email: str, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.create_invite_request(email)
+
+    async def get_invite(self, email: str, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.get_invite_request_by_email(email)
+
+    async def delete_invite(self, email: str, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.delete_request(email)
+
+    async def change_invite_status(self, email: str, status_update: StatusUpdate, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.change_status(email, status_update.status)
+
+    async def bulk_delete_invites(self, request: BulkDeleteRequest, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.bulk_delete_invite_requests(request.ids)

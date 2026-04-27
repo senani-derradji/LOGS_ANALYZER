@@ -140,7 +140,7 @@ app.include_router(router_stats.router, prefix="/api/v1/stats", tags=["stats"])
 app.include_router(router_logs.router, prefix="/api/v1/logs", tags=["logs"])
 app.include_router(router_admin.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"])
-app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
+# app.include_router(billing_router, prefix="/api/v1/billing", tags=["billing"])
 app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"])
 
 

@@ -1,9 +1,11 @@
 from app.models.users import Users
 from app.models.log import Logs
 from app.models.result import Result
+from app.models.invite_requests import InviteRequest
 from app.services.logs_services import LogsOperations
 from app.services.users_services import UserOperations
 from app.services.result_services import ResultOperations
+from app.services.invite_request_service import InviteOperations
 from fastapi import HTTPException
 from app.db.session import SessionLocal
 from sqlalchemy import desc
@@ -32,6 +34,11 @@ class AdminOperations:
         warning_results = self.db.query(Result).filter(Result.level == "warning").count()
         info_results = self.db.query(Result).filter(Result.level == "info").count()
 
+        total_invite_requests = self.db.query(InviteRequest).count()
+        pending_invite_requests = self.db.query(InviteRequest).filter(InviteRequest.status == "pending").count()
+        completed_invite_requests = self.db.query(InviteRequest).filter(InviteRequest.status == "completed").count()
+        rejected_invite_requests = self.db.query(InviteRequest).filter(InviteRequest.status == "rejected").count()
+
         return {
             "users": {
                 "total": total_users,
@@ -50,6 +57,12 @@ class AdminOperations:
                 "errors": error_results,
                 "warnings": warning_results,
                 "info": info_results
+            },
+            "invite_requests": {
+                "total": total_invite_requests,
+                "pending": pending_invite_requests,
+                "completed": completed_invite_requests,
+                "rejected": rejected_invite_requests
             }
         }
 
@@ -251,3 +264,22 @@ class AdminResultsOperations(ResultOperations):
                 continue
         self.db.commit()
         return {"message": f"Deleted {deleted_count} results"}
+
+
+class AdminInviteRequestOperations(InviteOperations):
+    def __init__(self, db=SessionLocal()):
+        super().__init__(db)
+        self.db = db
+
+    def bulk_delete_invite_requests(self, request_ids: List[int]):
+        deleted_count = 0
+        for request_id in request_ids:
+            try:
+                db_request = self.db.query(InviteRequest).filter(InviteRequest.id == request_id).first()
+                if db_request:
+                    self.db.delete(db_request)
+                    deleted_count += 1
+            except Exception:
+                continue
+        self.db.commit()
+        return {"message": f"Deleted {deleted_count} invite requests"}

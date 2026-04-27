@@ -7,8 +7,9 @@ from app.core.redis import get_redis
 from fastapi.responses import HTMLResponse
 
 from app.services.users_services import UserOperations
-from app.utils.get_ops import get_user_ops
-from app.security.jwt import get_current_user, create_access_token, create_password_hash, verify_password
+from app.services.invite_request_service import InviteOperations
+from app.utils.get_ops import get_user_ops, get_invite_ops
+from app.security.jwt import get_current_user, create_password_hash
 from app.schemas.users_schema import (
     UserCreate, InviteCreate, InviteResponse,
     ForgotPasswordRequest, ResetPasswordRequest, UsageResponse
@@ -22,6 +23,7 @@ from app.utils.check_tier import check
 from app.utils.notification_manager import send_welcome_email, send_verification_email, send_reset_password_email
 from app.utils.logger import logger
 import time
+from pydantic import EmailStr
 
 
 
@@ -39,6 +41,7 @@ class UserRoutes:
         self.router.add_api_route("/usage", self.get_usage, methods=["GET"])
         self.router.add_api_route("/verify_email", self.verify_email, methods=["GET"])
         self.router.add_api_route("/reset-password-page", self.reset_password_page, methods=["GET"])
+        self.router.add_api_route("/demande_invite", self.demande_invite, methods=["POST"])
 
     async def user_login(
         self,
@@ -83,37 +86,7 @@ class UserRoutes:
                 detail="Too many reset attempts, try later"
             )
 
-        existing = user_ops.get_user_by_email(user_data.email)
-        if existing:
-            raise HTTPException(status_code=400, detail="Email already registered")
-
-
-        tenant_id = str(uuid.uuid4())
-        password_hash = create_password_hash(user_data.password)
-
-        new_user = Users(
-            tenant_id=tenant_id,
-            name=user_data.name,
-            email=user_data.email,
-            password_hash=password_hash,
-            telegram_chat_id=user_data.telegram_chat_id,
-
-            role="user",
-            subscription_tier="free",
-            monthly_quota=100,
-
-            email_verified=False,
-            is_active=True,
-
-            api_usage_current_month=0,
-            api_usage_reset_at=datetime.utcnow() + timedelta(days=30),
-
-            subscription_expires_at=datetime.utcnow() + timedelta(days=30),
-        )
-
-        user_ops.db.add(new_user)
-        user_ops.db.commit()
-        user_ops.db.refresh(new_user)
+        new_user = user_ops.create_user(user_data)
 
         redis_client = get_redis()
 
@@ -127,6 +100,7 @@ class UserRoutes:
         )
 
         logger.info(f"verify_key created: {verify_key}")
+        logger.info(f"verify_endpoint: http://localhost:8000/api/v1/users/verify_email?token={token}")
 
         await send_verification_email(
             to_email=new_user.email,
@@ -162,6 +136,9 @@ class UserRoutes:
 
         # FIX: correct field name
         user.email_verified = True
+        user.is_active = True
+        user.subscription_expires_at = datetime.utcnow() + timedelta(days=30)
+
         user_ops.db.commit()
 
         await redis_client.delete(verify_key)
@@ -176,6 +153,7 @@ class UserRoutes:
     async def create_invite(
         self,
         invite_data: InviteCreate,
+        invite_ops: InviteOperations = Depends(get_invite_ops),
         # user=Depends(get_current_user),
         # user_ops: UserOperations = Depends(get_user_ops),
         admin=Depends(require_admin),
@@ -193,7 +171,26 @@ class UserRoutes:
             ex=1 * 24 * 60 * 60
         )
 
+        invite_ops.change_status(invite_data.email, "completed")
         return InviteResponse(token=token, expires_at=expires_at)
+
+
+    def demande_invite(self, email_address: EmailStr,
+                    invite_ops: InviteOperations = Depends(get_invite_ops),
+                    user_ops: UserOperations = Depends(get_user_ops),
+                       ):
+        db_user = user_ops.get_user_by_email(email_address)
+        if db_user:
+            raise HTTPException(status_code=400, detail="User already exists")
+
+        db_invite = invite_ops.get_invite_request_by_email(email_address)
+        if db_invite:
+            raise HTTPException(status_code=400, detail="Invite request already exists")
+
+        invite_ops.create_invite_request(email_address)
+        return {"message": "Invite request created"}
+
+
 
     async def forgot_password(
         self,
@@ -223,6 +220,7 @@ class UserRoutes:
         user_ops.db.commit()
 
         logger.info(f"reset_key created: {reset_key}")
+        logger.info(f"reset_endpoint: http://localhost:8000/api/v1/users/reset-password?token={token}")
 
 
         await send_reset_password_email(

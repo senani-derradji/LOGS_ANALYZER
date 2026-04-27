@@ -2,9 +2,6 @@ import httpx
 from app.core.config import settings
 
 
-# =========================
-# VERIFY EMAIL HTML
-# =========================
 def build_verification_email(name: str, verify_link: str):
     return f"""
 <!DOCTYPE html>
@@ -46,9 +43,6 @@ def build_verification_email(name: str, verify_link: str):
 """
 
 
-# =========================
-# SEND VERIFY EMAIL (ASYNC)
-# =========================
 async def send_verification_email(to_email: str, name: str, token: str, protocol: str = "https://"):
     url = settings.EMAILURL
 
@@ -82,9 +76,6 @@ async def send_verification_email(to_email: str, name: str, token: str, protocol
     return response.json()
 
 
-# =========================
-# WELCOME EMAIL HTML
-# =========================
 def build_welcome_email(name: str, endpoint: str = settings.DOMAIN):
     return f"""
 <!DOCTYPE html>
@@ -123,9 +114,6 @@ def build_welcome_email(name: str, endpoint: str = settings.DOMAIN):
 """
 
 
-# =========================
-# SEND WELCOME EMAIL (ASYNC)
-# =========================
 async def send_welcome_email(to_email: str, name: str):
     url = settings.EMAILURL
 

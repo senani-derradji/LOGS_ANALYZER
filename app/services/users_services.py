@@ -6,10 +6,12 @@ from app.db.session import SessionLocal
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 from app.utils.logger import logger
+from app.utils.check_tier import check
+import uuid
 
 
 TIER_QUOTAS = {
-    "free": 100,
+    "free": 10,
     "pro": 1000,
     "enterprise": 100000,
 }
@@ -18,6 +20,46 @@ TIER_QUOTAS = {
 class UserOperations:
     def __init__(self, db = SessionLocal()):
         self.db = db
+
+    def create_user(self, user: UserCreate):
+        db_user = self.get_user_by_email(user.email)
+        if db_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        db_user = self.get_user_by_name(user.name)
+        if db_user:
+            raise HTTPException(status_code=400, detail="Name already registered")
+
+        hashed_password = create_password_hash(user.password)
+        tenant_id = str(uuid.uuid4())
+
+        db_user = Users(
+            email=user.email,
+            name=user.name,
+            password_hash=hashed_password,
+            is_active=False,
+            tenant_id=tenant_id,
+
+            subscription_tier=user.subscription_tier,
+
+            monthly_quota=check(user.subscription_tier),
+
+            subscription_expires_at=datetime.utcnow(),
+
+            email_verified=False,
+
+            api_usage_current_month=0,
+            api_usage_reset_at=datetime.utcnow(),
+
+            telegram_chat_id=user.telegram_chat_id if user.telegram_chat_id else None,
+
+            created_at=datetime.now(),
+        )
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
+
+        return db_user
 
     def get_user_by_email(self, email: str):
         try:
@@ -72,12 +114,6 @@ class UserOperations:
             tier = "free"
             quota = TIER_QUOTAS["free"]
 
-        logger.info(f"Quota: {quota}")
-        logger.info(f"Usage: {usage}")
-        logger.info(f"Tier: {tier}")
-
-        logger.info(f"RESULT {user.subscription_expires_at} - {datetime.utcnow()}: {user.subscription_expires_at and user.subscription_expires_at < datetime.utcnow()}")
-
         remaining = max(0, quota - usage)
         allowed = usage < quota
 
@@ -124,11 +160,7 @@ class UserOperations:
             raise HTTPException(status_code=400, detail="Email not verified")
 
         if db_user.is_active is True:
-            logger.info(f"User is active :::: {db_user.is_active}")
-            logger.info(f"Password hash :::: {password_hash}")
-            logger.info(f"Password :::: {form_data.password}")
-            logger.info(f"Password hash :::: {create_password_hash(form_data.password)}")
-            logger.info(f"User is active :::: {verify_password(form_data.password, password_hash)}")
+
             if verify_password(form_data.password, db_user.password_hash):
                 db_user.last_login = datetime.utcnow()
                 self.db.commit()

@@ -44,6 +44,7 @@ class LogsRoutes:
 
         user_data = user_ops.get_user_by_email(user.get("sub"))
         quota = user_ops.check_quota(user_data)
+        logger.info(f"quota: {quota}  *  user_data: {user_data.name}: {user_data.subscription_tier}: {user_data.email}")
 
         if not user_data:
             raise HTTPException(status_code=404, detail="User not found")

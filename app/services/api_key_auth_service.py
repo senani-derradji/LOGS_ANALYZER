@@ -8,7 +8,7 @@ import hashlib
 from app.db.session import get_db
 from app.models.api_key import ApiKey
 from app.models.users import Users
-from app.security.jwt import get_current_user
+# from app.security.jwt import get_current_user
 
 from app.utils.logger import logger
 
@@ -51,36 +51,31 @@ async def get_current_user_or_api_key(
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
 
-    if credentials and credentials.scheme.lower() == "bearer":
-        token = credentials.credentials
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated"
+        )
 
-        try:
-            user = await get_current_user(
-                HTTPAuthorizationCredentials(
-                    scheme="Bearer",
-                    credentials=credentials.credentials
-                )
-            )
-            user["auth_type"] = "jwt"
-            return user
-        except Exception:
-            pass
+    token = credentials.credentials
 
+    # try:
+    #     user = await get_current_user(
+    #         HTTPAuthorizationCredentials(
+    #             scheme="Bearer",
+    #             credentials=token
+    #         )
+    #     )
+    #     user["auth_type"] = "jwt"
+    #     return user
 
-    if credentials:
-        api_key = credentials.credentials
-        api_key_obj = verify_api_key(api_key, db)
+    # except HTTPException:
+    #     pass
 
+    api_key_obj = verify_api_key(token, db)
 
-        if not api_key_obj:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid API key"
-            )
-
+    if api_key_obj:
         user = get_api_key_user(api_key_obj, db)
-        logger.info(f"USER: {user.email}")
-
 
         if not user:
             raise HTTPException(
@@ -96,8 +91,7 @@ async def get_current_user_or_api_key(
             "auth_type": "api_key"
         }
 
-
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Not authenticated"
+        detail="Invalid JWT token or API key"
     )
