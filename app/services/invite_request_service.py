@@ -71,4 +71,4 @@ class InviteOperations:
                 logger.error(f"Error updating log status: {str(e)}")
                 raise HTTPException(status_code=500, detail="Could not update log status")
         else:
-            raise HTTPException(status_code=404, detail="Log not found")
+            raise HTTPException(status_code=404, detail="Invite not found")

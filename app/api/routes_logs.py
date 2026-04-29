@@ -151,13 +151,9 @@ class LogsRoutes:
         user=Depends(get_current_user),
         user_ops: UserOperations = Depends(get_user_ops),
     ):
-        logs = logs_ops.get_logs(user_id=user_ops.get_user_by_email(user.get("sub")).id,
-                                 skip=skip,
-                                 limit=limit)
-
-        if not logs:
-            raise HTTPException(status_code=404, detail="Logs not found")
-        return logs
+        user_id = user_ops.get_user_by_email(user.get("sub")).id
+        logs = logs_ops.get_logs(user_id=user_id, skip=skip, limit=limit)
+        return logs or []
 
     async def get_log(
         self,

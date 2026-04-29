@@ -30,9 +30,10 @@ class AdminOperations:
         failed_logs = self.db.query(Logs).filter(Logs.status == "failed").count()
 
         total_results = self.db.query(Result).count()
-        error_results = self.db.query(Result).filter(Result.level == "error").count()
-        warning_results = self.db.query(Result).filter(Result.level == "warning").count()
-        info_results = self.db.query(Result).filter(Result.level == "info").count()
+        error_results = self.db.query(Result).filter(Result.level == "ERROR").all()
+        warning_results = self.db.query(Result).filter(Result.level == "WARNING").all()
+        info_results = self.db.query(Result).filter(Result.level == "INFO").all()
+        debug_results = self.db.query(Result).filter(Result.level == "DEBUG").all()
 
         total_invite_requests = self.db.query(InviteRequest).count()
         pending_invite_requests = self.db.query(InviteRequest).filter(InviteRequest.status == "pending").count()
@@ -40,30 +41,23 @@ class AdminOperations:
         rejected_invite_requests = self.db.query(InviteRequest).filter(InviteRequest.status == "rejected").count()
 
         return {
-            "users": {
-                "total": total_users,
-                "active": active_users,
-                "admins": admin_users
-            },
-            "logs": {
-                "total": total_logs,
-                "pending": pending_logs,
-                "processing": processing_logs,
-                "completed": completed_logs,
-                "failed": failed_logs
-            },
-            "results": {
-                "total": total_results,
-                "errors": error_results,
-                "warnings": warning_results,
-                "info": info_results
-            },
-            "invite_requests": {
-                "total": total_invite_requests,
-                "pending": pending_invite_requests,
-                "completed": completed_invite_requests,
-                "rejected": rejected_invite_requests
-            }
+            "total_users": total_users,
+            "active_users": active_users,
+            "admin_users": admin_users,
+            "total_logs": total_logs,
+            "pending_logs": pending_logs,
+            "processing_logs": processing_logs,
+            "completed_logs": completed_logs,
+            "failed_logs": failed_logs,
+            "total_results": total_results,
+            "error_count": len(error_results),
+            "warning_count": len(warning_results),
+            "info_count": len(info_results),
+            "debug_count": len(debug_results),
+            "total_invite_requests": total_invite_requests,
+            "pending_invite_requests": pending_invite_requests,
+            "completed_invite_requests": completed_invite_requests,
+            "rejected_invite_requests": rejected_invite_requests
         }
 
     def get_recent_activity(self, days: int = 7) -> Dict[str, Any]:
@@ -72,25 +66,30 @@ class AdminOperations:
         recent_logs = self.db.query(Logs).filter(Logs.created_at >= start_date).all()
         recent_results = self.db.query(Result).filter(Result.created_at >= start_date).all()
 
-        logs_by_date = {}
-        results_by_date = {}
+        daily_stats = {}
 
         for log in recent_logs:
-            date_key = log.created_at.strftime("%Y-%m-%d")
-            logs_by_date[date_key] = logs_by_date.get(date_key, 0) + 1
+            if log.created_at:
+                date_key = log.created_at.strftime("%Y-%m-%d")
+                daily_stats[date_key] = daily_stats.get(date_key, 0) + 1
 
         for result in recent_results:
-            date_key = result.created_at.strftime("%Y-%m-%d")
-            results_by_date[date_key] = results_by_date.get(date_key, 0) + 1
+            if result.created_at:
+                date_key = result.created_at.strftime("%Y-%m-%d")
+                daily_stats[date_key] = daily_stats.get(date_key, 0) + 1
+
+        daily_stats_array = [{"date": date, "count": count} for date, count in sorted(daily_stats.items())]
 
         return {
-            "logs_by_date": logs_by_date,
-            "results_by_date": results_by_date,
+            "daily_stats": daily_stats_array,
             "period_days": days
         }
 
     def get_error_statistics(self) -> Dict[str, Any]:
-        error_results = self.db.query(Result).filter(Result.level == "error").all()
+        error_results = self.db.query(Result).filter(Result.level == "ERROR").all()
+        warning_results = self.db.query(Result).filter(Result.level == "WARNING").all()
+        info_results = self.db.query(Result).filter(Result.level == "INFO").all()
+        debug_results = self.db.query(Result).filter(Result.level == "DEBUG").all()
 
         error_messages = {}
         for result in error_results:
@@ -101,11 +100,16 @@ class AdminOperations:
 
         return {
             "total_errors": len(error_results),
+            "error_count": len(error_results),
+            "warning_count": len(warning_results),
+            "info_count": len(info_results),
+            "debug_count": len(debug_results),
             "top_errors": [{"message": msg, "count": count} for msg, count in top_errors]
         }
 
     def get_user_statistics(self) -> Dict[str, Any]:
         users = self.db.query(Users).all()
+        active_users_count = self.db.query(Users).filter(Users.is_active == True).count()
 
         users_with_logs = []
         for user in users:
@@ -125,6 +129,7 @@ class AdminOperations:
 
         return {
             "total_users": len(users_with_logs),
+            "active_users": active_users_count,
             "users": users_with_logs
         }
 
@@ -145,15 +150,12 @@ class AdminLogsOperations(LogsOperations):
         if logs is not None:
             return logs
         else:
-            raise HTTPException(status_code=404, detail="Logs not found")
+            raise HTTPException(status_code=200, detail="Logs not found")
 
 
     def get_logs_admin(self, skip: int = 0, limit: int = 100):
         logs = self.db.query(Logs).offset(skip).limit(limit).all()
-        if logs is not None:
-            return logs
-        else:
-            raise HTTPException(status_code=404, detail="Logs not found")
+        return logs
 
     def update_log(self, log_id: int, log_data: dict):
         db_log = self.get_log_by_id(log_id)
@@ -270,6 +272,35 @@ class AdminInviteRequestOperations(InviteOperations):
     def __init__(self, db=SessionLocal()):
         super().__init__(db)
         self.db = db
+
+    def get_invite_requests(self, skip: int = 0, limit: int = 100):
+        return self.db.query(InviteRequest).order_by(desc(InviteRequest.created_at)).offset(skip).limit(limit).all()
+
+    def get_invite_request_by_email(self, email: str):
+        return self.db.query(InviteRequest).filter(InviteRequest.email == email).first()
+
+    def delete_invite_request(self, email: str):
+        db_request = self.db.query(InviteRequest).filter(InviteRequest.email == email).first()
+        if not db_request:
+            raise HTTPException(status_code=404, detail="Invite request not found")
+        self.db.delete(db_request)
+        self.db.commit()
+        return {"message": "Invite request deleted"}
+
+    def change_invite_status(self, email: str, new_status: str = "completed"):
+        db_invite = self.get_invite_request_by_email(email)
+        if not db_invite:
+            raise HTTPException(status_code=404, detail="Invite not found")
+        try:
+            if new_status:
+                db_invite.status = new_status
+                self.db.commit()
+                self.db.refresh(db_invite)
+            return db_invite
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error updating invite status: {str(e)}")
+            raise HTTPException(status_code=500, detail="Could not update invite status")
 
     def bulk_delete_invite_requests(self, request_ids: List[int]):
         deleted_count = 0

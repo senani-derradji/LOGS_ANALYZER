@@ -235,9 +235,25 @@ class UserOperations:
 
     def get_profile(self, user_email: str):
         db_user = self.get_user_by_email(user_email)
-        UserInDB.model_validate(db_user)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Build user data dict including the role field
+        user_data = {
+            "tenant_id": db_user.tenant_id,
+            "name": db_user.name,
+            "email": db_user.email,
+            "is_active": db_user.is_active,
+            "api_usage_current_month": db_user.api_usage_current_month,
+            "api_usage_reset_at": db_user.api_usage_reset_at,
+            "subscription_expires_at": db_user.subscription_expires_at,
+            "email_verified": db_user.email_verified,
+            "telegram_chat_id": db_user.telegram_chat_id,
+            "role": getattr(db_user, 'role', 'user')
+        }
+        
         return {
-            "UserData": UserInDB(**db_user.__dict__) if db_user else None,
+            "UserData": UserInDB(**user_data),
             "Usage": self.check_quota(db_user)
         }
 

@@ -11,10 +11,7 @@ class ResultOperations:
 
     def get_results(self, skip: int = 0, limit: int = 100):
         results = self.db.query(Result).offset(skip).limit(limit).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_result_by_id(self, result_id: int):
         result = self.db.query(Result).filter(Result.id == result_id).first()
@@ -25,10 +22,7 @@ class ResultOperations:
 
     def get_results_by_log(self, log_id: int):
         results = self.db.query(Result).filter(Result.log_id == log_id).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_results_by_log_and_user(self, log_id: int, user_id: int, skip: int = 0, limit: int = 100, level: Optional[str] = None):
         query = self.db.query(Result).filter(
@@ -36,62 +30,35 @@ class ResultOperations:
             Result.user_id == user_id
         )
 
-        if not query:
-            raise HTTPException(status_code=404, detail="Results not found")
-
-
-        if level and level.upper() in ["ERROR", "WARNING", "INFO"]:
+        if level and level.upper() in ["ERROR", "WARNING", "INFO", "DEBUG", "UNKNOWN"]:
             query = query.filter(Result.level == level)
-        else:
-            raise HTTPException(status_code=400, detail="Invalid level")
 
         results = query.offset(skip).limit(limit).all()
-        if results is not None:
-            return results
-        else:
-            return []
+        return results
 
     def get_results_by_user(self, user_id: int):
         results = self.db.query(Result).filter(Result.user_id == user_id).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_results_by_level(self, level: str):
         results = self.db.query(Result).filter(Result.level == level).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_results_by_type(self, detected_type: str):
         results = self.db.query(Result).filter(Result.detected_type == detected_type).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_results_by_event_category(self, event_category: str):
         results = self.db.query(Result).filter(Result.event_category == event_category).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_results_by_ip(self, ip: str):
         results = self.db.query(Result).filter(Result.extra["ip"].astext == ip).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def get_results_by_user_extracted(self, user: str):
         results = self.db.query(Result).filter(Result.extra["user"].astext == user).all()
-        if results is not None:
-            return results
-        else:
-            raise HTTPException(status_code=404, detail="Results not found")
+        return results
 
     def create_result(self, result_data: dict):
         try:
@@ -188,4 +155,4 @@ class ResultOperations:
                 self.db.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
         else:
-            raise HTTPException(status_code=404, detail="Results not found")
+            raise HTTPException(status_code=200, detail="Results not found")

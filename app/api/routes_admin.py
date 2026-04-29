@@ -5,12 +5,18 @@ from app.services.admin_services import (AdminOperations,
                                          AdminResultsOperations,
                                          AdminInviteRequestOperations)
 from app.utils.logger import logger
-from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate
+from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate, InviteCreate, InviteResponse
 from app.schemas.log_schema import LogResponse
 from app.schemas.result_schema import ResultResponse
 from app.security.jwt import require_admin
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
+from datetime import datetime, timedelta
+import secrets
+from app.core.config import settings
+from app.core.redis import get_redis
+from app.utils.notification_manager import send_invite_email
+from app.services.users_services import UserOperations
 
 
 class RoleUpdate(BaseModel):
@@ -60,11 +66,10 @@ class AdminRoutes:
         self.router.add_api_route("/results/bulk-delete", self.bulk_delete_results, methods=["POST"])
 
         self.router.add_api_route("/invites", self.get_invites, methods=["GET"])
-        self.router.add_api_route("/invites/{invite_id}", self.get_invite, methods=["GET"])
-        # self.router.add_api_route("/invites", self.create_invite, methods=["POST"])
-        # self.router.add_api_route("/invites/{invite_id}", self.update_invite, methods=["PUT"])
-        self.router.add_api_route("/invites/{invite_id}", self.delete_invite, methods=["DELETE"])
-        self.router.add_api_route("/invites/{invite_id}/status", self.change_invite_status, methods=["PATCH"])
+        self.router.add_api_route("/invites/{email}", self.get_invite, methods=["GET"])
+        self.router.add_api_route("/invites", self.create_invite, methods=["POST"])
+        self.router.add_api_route("/invites/{email}", self.delete_invite, methods=["DELETE"])
+        self.router.add_api_route("/invites/{email}/status", self.change_invite_status, methods=["PATCH"])
         self.router.add_api_route("/invites/bulk-delete", self.bulk_delete_invites, methods=["POST"])
 
     async def get_dashboard_stats(self, admin=Depends(require_admin)) -> Dict[str, Any]:
@@ -194,23 +199,69 @@ class AdminRoutes:
 
     async def get_invites(self, skip: int = 0, limit: int = 100, admin=Depends(require_admin)):
         ops = AdminInviteRequestOperations()
-        return ops.get_all_requests(skip=skip, limit=limit)
+        return ops.get_invite_requests(skip=skip, limit=limit)
 
-    async def create_invite(self, email: str, admin=Depends(require_admin)):
-        ops = AdminInviteRequestOperations()
-        return ops.create_invite_request(email)
+    async def create_invite(self, invite_data: InviteCreate, admin=Depends(require_admin)):
+        from app.security.jwt import require_admin
+        from app.services.users_services import UserOperations
+        from app.core.redis import get_redis
+        from app.utils.notification_manager import send_invite_email
+        import secrets
+        from datetime import datetime, timedelta
+
+        email = invite_data.email
+
+        # Check if user already exists
+        user_ops = UserOperations()
+        db_user = user_ops.get_user_by_email(email)
+        if db_user:
+            raise HTTPException(status_code=400, detail="User already exists")
+
+        # Check if invite request exists and is pending
+        invite_ops = AdminInviteRequestOperations()
+        db_invite = invite_ops.get_invite_request_by_email(email)
+        if not db_invite:
+            raise HTTPException(status_code=404, detail="Invite request not found")
+        if db_invite.status != "PENDING":
+            raise HTTPException(status_code=400, detail="Invite request is not pending")
+
+        # Generate token
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(days=1)
+
+        # Store in Redis
+        redis_client = get_redis()
+        invite_key = f"invite:{token}"
+        await redis_client.set(invite_key, email, ex=1 * 24 * 60 * 60)
+
+         # Update invite status to completed
+        invite_ops.change_invite_status(email, "COMPLETED")
+
+         # Send invite email with token
+        protocol = "https://" if settings.ENVIRONMENT == "production" else "http://"
+        domain = settings.DOMAIN if settings.DOMAIN else "localhost:8000"
+        invite_link = f"{protocol}{domain}/?invite_token={token}"
+        await send_invite_email(to_email=email, name=email.split('@')[0], invite_link=invite_link)
+
+        logger.info(f"invite_key created: {invite_key}")
+        logger.info(f"invite_endpoint: {invite_link}")
+
+        return InviteResponse(token=token, expires_at=expires_at)
 
     async def get_invite(self, email: str, admin=Depends(require_admin)):
         ops = AdminInviteRequestOperations()
-        return ops.get_invite_request_by_email(email)
+        invite = ops.get_invite_request_by_email(email)
+        if not invite:
+            raise HTTPException(status_code=404, detail="Invite request not found")
+        return invite
 
     async def delete_invite(self, email: str, admin=Depends(require_admin)):
         ops = AdminInviteRequestOperations()
-        return ops.delete_request(email)
+        return ops.delete_invite_request(email)
 
     async def change_invite_status(self, email: str, status_update: StatusUpdate, admin=Depends(require_admin)):
         ops = AdminInviteRequestOperations()
-        return ops.change_status(email, status_update.status)
+        return ops.change_invite_status(email, status_update.status)
 
     async def bulk_delete_invites(self, request: BulkDeleteRequest, admin=Depends(require_admin)):
         ops = AdminInviteRequestOperations()

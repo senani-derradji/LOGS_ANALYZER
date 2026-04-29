@@ -4,7 +4,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from typing import Callable, Optional
 import time
-import uuid
+import hashlib
 
 from app.core.redis import get_redis
 from app.core.config import settings
@@ -24,6 +24,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if settings.is_production and request.url.path in ["/docs", "/redoc", "/openapi.json"]:
             return await call_next(request)
 
+        # Skip rate limiting for OPTIONS requests (CORS preflight)
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         client_ip = self._get_client_ip(request)
         user_id = self._get_user_id(request)
         key = f"{self.key_prefix}:{user_id or client_ip}:{int(time.time() / self.period)}"
@@ -32,6 +36,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if redis_client:
             try:
                 current = await redis_client.incr(key)
+                logger.info(f"Rate limit current: {current}")
+                # Fix: await the ping() coroutine properly
+                try:
+                    ping_result = await redis_client.ping()
+                    logger.info(f"redis status: {ping_result}")
+                except Exception:
+                    pass
                 if current == 1:
                     await redis_client.expire(key, self.period)
 
@@ -56,7 +67,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return None
         auth_header = request.headers.get("Authorization")
         if auth_header and auth_header.startswith("Bearer "):
-            return auth_header[7:20]
+            token = auth_header[7:]
+            # Hash token to get a consistent, fixed-length identifier
+            return hashlib.sha256(token.encode()).hexdigest()[:16]
         return None
 
 
@@ -74,8 +87,10 @@ async def check_rate_limit(identifier: str, limit: int = 60, period: int = 60) -
     key = f"rate_limit:{identifier}:{int(time.time() / period)}"
     try:
         current = await redis_client.incr(key)
+        logger.info(f"Rate limit current3: {current}")
         if current == 1:
             await redis_client.expire(key, period)
+            logger.info(f"Rate limit current4: {current}")
         return current <= limit
     except Exception:
         return True

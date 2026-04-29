@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     name: str
     email: EmailStr
     password: str
-    telegram_chat_id: str
+    telegram_chat_id: str | None = None
     invitation_token: str | None = None
     subscription_tier: str = "free"
     @field_validator("subscription_tier")
@@ -91,6 +91,7 @@ class UserInDB(BaseModel):
     subscription_expires_at: datetime
     email_verified: bool
     telegram_chat_id: None | str
+    role: str = "user"
 
     class Config:
         from_attributes = True

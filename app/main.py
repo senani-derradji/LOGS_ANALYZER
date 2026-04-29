@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from pathlib import Path
 from app.db.session import init_db, SessionLocal
 from app.models.users import Users
@@ -133,7 +133,7 @@ router_stats = StatisticsRoutes()
 router_logs = LogsRoutes()
 router_admin = AdminRoutes()
 
-app.include_router(health_router, tags=["health"])
+app.include_router(health_router, prefix="/api/v1", tags=["health"])
 
 app.include_router(user_routes.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(router_stats.router, prefix="/api/v1/stats", tags=["stats"])
@@ -144,29 +144,35 @@ app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"]
 app.include_router(api_keys_router, prefix="/api/v1/api-keys", tags=["api-keys"])
 
 
-# @app.get("/")
-# async def main_root():
-#     return FileResponse("front/index.html")
+@app.get("/")
+async def main_root():
+    return FileResponse("front/index.html")
 
 
-# @app.get("/index.html")
-# async def serve_index():
-#     return FileResponse("front/index.html")
+@app.get("/index.html")
+async def serve_index():
+    return FileResponse("front/index.html")
 
 
-# @app.get("/css/{path:path}")
-# async def serve_css(path: str):
-#     return FileResponse(f"front/css/{path}")
+@app.get("/css/{path:path}")
+async def serve_css(path: str):
+    file_path = f"front/css/{path}"
+    if Path(file_path).is_file():
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")
 
 
-# @app.get("/js/{path:path}")
-# async def serve_js(path: str):
-#     return FileResponse(f"front/js/{path}")
+@app.get("/js/{path:path}")
+async def serve_js(path: str):
+    file_path = f"front/js/{path}"
+    if Path(file_path).is_file():
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")
 
 
-# @app.get("/libs/{path:path}")
-# async def serve_libs(path: str):
-#     file_path = f"front/libs/{path}"
-#     if Path(file_path).is_file():
-#         return FileResponse(file_path)
-#     raise HTTPException(status_code=404, detail="File not found")
+@app.get("/libs/{path:path}")
+async def serve_libs(path: str):
+    file_path = f"front/libs/{path}"
+    if Path(file_path).is_file():
+        return FileResponse(file_path)
+    raise HTTPException(status_code=404, detail="File not found")

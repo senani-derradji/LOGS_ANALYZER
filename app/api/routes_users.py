@@ -49,13 +49,18 @@ class UserRoutes:
         form_data: OAuth2PasswordRequestForm = Depends(),
         user_ops: UserOperations = Depends(get_user_ops),
     ):
+        logger.info(f"USER : {form_data}")
         client_ip = request_limit.client.host
 
+        logger.info(f"USER : {client_ip}")
+        print("USER : ", client_ip)
         allowed = await check_rate_limit(
             identifier=f"reset:{client_ip}",
-            limit=5,
+            limit=50,
             period=300
         )
+
+        logger.info(f"USER : {form_data}")
 
         if not allowed:
             raise HTTPException(
@@ -67,50 +72,68 @@ class UserRoutes:
 
 
     async def register(
-        self,
-        request_limit: Request,
-        user_data: UserCreate,
-        user_ops: UserOperations = Depends(get_user_ops),
-    ):
-        client_ip = request_limit.client.host
+         self,
+         request_limit: Request,
+         user_data: UserCreate,
+         user_ops: UserOperations = Depends(get_user_ops),
+     ):
+         client_ip = request_limit.client.host
 
-        allowed = await check_rate_limit(
-            identifier=f"reset:{client_ip}",
-            limit=5,
-            period=300
-        )
+         allowed = await check_rate_limit(
+             identifier=f"reset:{client_ip}",
+             limit=5,
+             period=300
+         )
 
-        if not allowed:
-            raise HTTPException(
-                status_code=429,
-                detail="Too many reset attempts, try later"
-            )
+         if not allowed:
+             raise HTTPException(
+                 status_code=429,
+                 detail="Too many reset attempts, try later"
+             )
 
-        new_user = user_ops.create_user(user_data)
+         # Validate invitation token if provided
+         if user_data.invitation_token:
+             redis_client = get_redis()
+             invite_key = f"invite:{user_data.invitation_token}"
+             stored_email = await redis_client.get(invite_key)
 
-        redis_client = get_redis()
+             if not stored_email:
+                 raise HTTPException(status_code=400, detail="Invalid or expired invitation token")
 
-        token = secrets.token_urlsafe(32)
-        verify_key = f"email_verify:{token}"
+             if isinstance(stored_email, bytes):
+                 stored_email = stored_email.decode()
 
-        await redis_client.set(
-            verify_key,
-            new_user.email,
-            ex=3600,  # 1 hour
-        )
+             if stored_email != user_data.email:
+                 raise HTTPException(status_code=400, detail="Invitation token does not match this email")
 
-        logger.info(f"verify_key created: {verify_key}")
-        logger.info(f"verify_endpoint: http://localhost:8000/api/v1/users/verify_email?token={token}")
+             # Token is one-time use; delete it
+             await redis_client.delete(invite_key)
 
-        await send_verification_email(
-            to_email=new_user.email,
-            name=new_user.name,
-            token=token,
-        )
+         new_user = user_ops.create_user(user_data)
 
-        return {
-            "message": "User created. Please verify your email.",
-        }
+         redis_client = get_redis()
+
+         token = secrets.token_urlsafe(32)
+         verify_key = f"email_verify:{token}"
+
+         await redis_client.set(
+             verify_key,
+             new_user.email,
+             ex=3600,  # 1 hour
+         )
+
+         logger.info(f"verify_key created: {verify_key}")
+         logger.info(f"invite_endpoint: http://localhost:8000/api/v1/users/verify_email?token={token}")
+
+         await send_verification_email(
+             to_email=new_user.email,
+             name=new_user.name,
+             token=token,
+         )
+
+         return {
+             "message": "User created. Please verify your email.",
+         }
 
     async def verify_email(
         self,
@@ -134,7 +157,6 @@ class UserRoutes:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # FIX: correct field name
         user.email_verified = True
         user.is_active = True
         user.subscription_expires_at = datetime.utcnow() + timedelta(days=30)
@@ -148,7 +170,8 @@ class UserRoutes:
             name=user.name,
         )
 
-        return {"message": "Email verified successfully"}
+        return {"message": "Email verified successfully", "verified": True}
+
 
     async def create_invite(
         self,
@@ -172,13 +195,20 @@ class UserRoutes:
         )
 
         invite_ops.change_status(invite_data.email, "completed")
+        logger.info(f"invite_key created: {invite_key}")
+        logger.info(f"invite_endpoint: http://localhost:8000/api/v1/users/invite?token={token}")
+
         return InviteResponse(token=token, expires_at=expires_at)
 
 
-    def demande_invite(self, email_address: EmailStr,
-                    invite_ops: InviteOperations = Depends(get_invite_ops),
-                    user_ops: UserOperations = Depends(get_user_ops),
-                       ):
+    async def demande_invite(
+        self,
+        invite_data: InviteCreate,
+        invite_ops: InviteOperations = Depends(get_invite_ops),
+        user_ops: UserOperations = Depends(get_user_ops),
+    ):
+        email_address = invite_data.email
+
         db_user = user_ops.get_user_by_email(email_address)
         if db_user:
             raise HTTPException(status_code=400, detail="User already exists")
@@ -186,6 +216,7 @@ class UserRoutes:
         db_invite = invite_ops.get_invite_request_by_email(email_address)
         if db_invite:
             raise HTTPException(status_code=400, detail="Invite request already exists")
+        logger.info(f"INVITE : {email_address}")
 
         invite_ops.create_invite_request(email_address)
         return {"message": "Invite request created"}

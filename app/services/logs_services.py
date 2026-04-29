@@ -16,25 +16,15 @@ class LogsOperations:
         logs = self.db.query(Logs).filter(
                 Logs.user_id == user_id
             ).offset(skip).limit(limit).all()
-        if logs is not None:
-            return logs
-        else:
-            raise HTTPException(status_code=404, detail="Logs not found")
+        return logs
 
     def get_log_by_id(self, log_id: int):
-        logs = self.db.query(Logs).filter(Logs.id == log_id).first()
-        if logs is not None:
-            return logs
-        else:
-            raise HTTPException(status_code=404, detail="Logs not found")
+        log = self.db.query(Logs).filter(Logs.id == log_id).first()
+        return log
 
     def get_logs_by_user(self, user_id: int):
-
         logs = self.db.query(Logs).filter(Logs.user_id == user_id).all()
-        if logs is not None:
-            return logs
-        else:
-            raise HTTPException(status_code=404, detail="Logs not found")
+        return logs
 
     def create_log(self, log_data: LogCreateValidator, user_id: int, tenant_id: str):
 
@@ -140,7 +130,7 @@ class LogsOperations:
                 self.db.rollback()
                 raise HTTPException(status_code=500, detail=str(e))
         else:
-            raise HTTPException(status_code=404, detail="Logs not found")
+            raise HTTPException(status_code=200, detail="Logs not found")
 
     def get_total_size_used(self, user_id: int):
         total_size = self.db.query(

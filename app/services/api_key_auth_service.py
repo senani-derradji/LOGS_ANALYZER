@@ -39,7 +39,6 @@ def get_api_key_user(api_key_obj: ApiKey, db: Session) -> Optional[Users]:
     if not user:
         return None
 
-    # update last used
     api_key_obj.last_used_at = datetime.utcnow()
     db.commit()
 
@@ -59,18 +58,13 @@ async def get_current_user_or_api_key(
 
     token = credentials.credentials
 
-    # try:
-    #     user = await get_current_user(
-    #         HTTPAuthorizationCredentials(
-    #             scheme="Bearer",
-    #             credentials=token
-    #         )
-    #     )
-    #     user["auth_type"] = "jwt"
-    #     return user
-
-    # except HTTPException:
-    #     pass
+    try:
+        from app.security.jwt import get_current_user
+        user = get_current_user(token)
+        user["auth_type"] = "jwt"
+        return user
+    except HTTPException:
+        pass
 
     api_key_obj = verify_api_key(token, db)
 
