@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logs Analyzer</title>
+    <link rel="stylesheet" href="libs/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="libs/animate/animate.min.css">
+    <link rel="stylesheet" href="libs/toastr/toastr.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-chart-line me-2"></i> Logs Analyzer
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto" id="authNav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#loginModal">
+                            <i class="fas fa-sign-in-alt me-1"></i> Login
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-5 pt-4">
+        <!-- Auth Section -->
+        <div id="loginSection" class="row justify-content-center mt-5">
+            <div class="col-md-5">
+                <div class="card shadow-lg animate__animated animate__fadeIn">
+                    <div class="card-body p-4">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-user-circle fa-4x text-primary"></i>
+                            <h3 class="mt-3">Logs Analyzer</h3>
+                            <p class="text-muted">Secure access to your logs</p>
+                        </div>
+
+    <!-- Auth Tabs -->
+    <ul class="nav nav-tabs mb-4" id="authTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button" role="tab">Login</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button" role="tab">Sign Up</button>
+        </li>
+    </ul>
+
+    <div class="text-center mb-3">
+        <a href="#" data-bs-toggle="modal" data-bs-target="#verifyEmailModal" class="text-decoration-none">
+            <small><i class="fas fa-check-circle me-1"></i>Verify Email</small>
+        </a>
+    </div>
+
+                        <div class="tab-content" id="authTabContent">
+                            <!-- Login Form -->
+                            <div class="tab-pane fade show active" id="login" role="tabpanel">
+                                <form id="loginForm">
+                                    <div class="mb-3">
+                                        <label for="username" class="form-label">
+                                            <i class="fas fa-user me-2"></i>Username or Email
+                                        </label>
+                                        <input type="text" class="form-control form-control-lg" id="username" placeholder="Enter username or email" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="password" class="form-label">
+                                            <i class="fas fa-lock me-2"></i>Password
+                                        </label>
+                                        <input type="password" class="form-control form-control-lg" id="password" placeholder="Enter password" required>
+                                    </div>
+                                    <div class="mb-3 text-end">
+                                        <a href="#" class="text-decoration-none" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal">
+                                            <small><i class="fas fa-key me-1"></i>Forgot Password?</small>
+                                        </a>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-lg w-100">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                                    </button>
+                                </form>
+                            </div>
+
+                            <!-- Register Form -->
+                            <div class="tab-pane fade" id="register" role="tabpanel">
+                                <form id="registerForm">
+                                    <div class="mb-3">
+                                        <label for="regName" class="form-label">
+                                            <i class="fas fa-user me-2"></i>Full Name
+                                        </label>
+                                        <input type="text" class="form-control" id="regName" placeholder="Enter your full name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="regEmail" class="form-label">
+                                            <i class="fas fa-envelope me-2"></i>Email
+                                        </label>
+                                        <input type="email" class="form-control" id="regEmail" placeholder="Enter your email" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="regPassword" class="form-label">
+                                            <i class="fas fa-lock me-2"></i>Password
+                                        </label>
+                                        <input type="password" class="form-control" id="regPassword" placeholder="Create a password" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="regConfirmPassword" class="form-label">
+                                            <i class="fas fa-lock me-2"></i>Confirm Password
+                                        </label>
+                                        <input type="password" class="form-control" id="regConfirmPassword" placeholder="Confirm your password" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="regInviteToken" class="form-label">
+                                            <i class="fas fa-ticket-alt me-2"></i>Invite Token <span class="text-muted">(optional)</span>
+                                        </label>
+                                        <input type="text" class="form-control" id="regInviteToken" placeholder="Enter your invite token if you have one">
+                                        <small class="form-text text-muted">
+                                            Don't have a token?
+                                            <a href="#" data-bs-toggle="modal" data-bs-target="#requestInviteModal">Request an invite</a>
+                                        </small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="regTelegram" class="form-label">
+                                            <i class="fab fa-telegram me-2"></i>Telegram Chat ID <span class="text-muted">(optional)</span>
+                                        </label>
+                                        <input type="text" class="form-control" id="regTelegram" placeholder="Your Telegram chat ID for notifications">
+                                        <small class="form-text text-muted">Leave empty if you don't use Telegram</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-success btn-lg w-100">
+                                        <i class="fas fa-user-plus me-2"></i>Create Account
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Quick Links -->
+                        <div class="text-center mt-4 pt-3 border-top">
+                            <small class="text-muted">
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#requestInviteModal">
+                                    <i class="fas fa-envelope me-1"></i>Request an Invite
+                                </a>
+                                <span class="mx-2">|</span>
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal">
+                                    <i class="fas fa-key me-1"></i>Forgot Password?
+                                </a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section (User) -->
+        <div id="dashboardSection" style="display: none;">
+            <div class="row mb-4 animate__animated animate__fadeIn">
+                <div class="col-md-12 d-flex justify-content-between align-items-center">
+                    <h2><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h2>
+                    <button class="btn btn-outline-primary btn-sm" id="viewProfileBtn">
+                        <i class="fas fa-user-circle me-1"></i>My Profile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white animate__animated animate__slideInUp" style="animation-delay: 0.1s;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">Total Logs</h6>
+                                    <h3 id="totalLogs">0</h3>
+                                </div>
+                                <i class="fas fa-file-alt fa-3x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white animate__animated animate__slideInUp" style="animation-delay: 0.2s;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">Processed</h6>
+                                    <h3 id="processedLogs">0</h3>
+                                </div>
+                                <i class="fas fa-check-circle fa-3x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white animate__animated animate__slideInUp" style="animation-delay: 0.3s;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">Pending</h6>
+                                    <h3 id="pendingLogs">0</h3>
+                                </div>
+                                <i class="fas fa-clock fa-3x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white animate__animated animate__slideInUp" style="animation-delay: 0.4s;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title">Errors</h6>
+                                    <h3 id="errorLogs">0</h3>
+                                </div>
+                                <i class="fas fa-exclamation-triangle fa-3x opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+                        <div class="card-header bg-gradient-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2"></i>Upload Log File</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="dropZone" class="drop-zone">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                                <h5>Drag & Drop your file here</h5>
+                                <p class="text-muted">or</p>
+                                <form id="uploadForm" enctype="multipart/form-data">
+                                    <input type="file" class="form-control" id="logFile" accept=".log,.txt,.csv" required>
+                                    <button type="submit" class="btn btn-primary mt-3">
+                                        <i class="fas fa-upload me-2"></i>Upload
+                                    </button>
+                                </form>
+                            </div>
+                            <div id="uploadProgress" class="progress mt-3" style="display: none;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div id="uploadStatus" class="mt-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-list me-2"></i>My Logs</h5>
+                            <button class="btn btn-sm btn-success d-none" id="refreshLogsBtn">
+                                <i class="fas fa-sync-alt me-1"></i>Refresh
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="logsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th><i class="fas fa-hashtag me-1"></i>ID</th>
+                                            <th><i class="fas fa-file me-1"></i>Filename</th>
+                                            <th><i class="fas fa-info-circle me-1"></i>Status</th>
+                                            <th><i class="fas fa-calendar me-1"></i>Uploaded</th>
+                                            <th><i class="fas fa-cogs me-1"></i>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logsTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Keys Section -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.6s;">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-key me-2"></i>API Keys</h5>
+                            <div>
+                                <button class="btn btn-sm btn-light d-none me-2" id="refreshApiKeysBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                                <button class="btn btn-sm btn-light" id="createApiKeyBtn" data-bs-toggle="modal" data-bs-target="#createApiKeyModal">
+                                    <i class="fas fa-plus me-1"></i>Create New Key
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info py-2 px-3 mb-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                <strong>Use API keys</strong> as Bearer tokens for programmatic log uploads via scripts or CI/CD.
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="apiKeysTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th><i class="fas fa-hashtag me-1"></i>ID</th>
+                                            <th><i class="fas fa-tag me-1"></i>Name</th>
+                                            <th><i class="fas fa-key me-1"></i>Prefix</th>
+                                            <th><i class="fas fa-toggle-on me-1"></i>Active</th>
+                                            <th><i class="fas fa-calendar me-1"></i>Created</th>
+                                            <th><i class="fas fa-clock me-1"></i>Expires</th>
+                                            <th><i class="fas fa-cogs me-1"></i>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="apiKeysTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Section (User) -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.5s;">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Results</h5>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control form-control-sm" id="resultsSearchUser" placeholder="Search messages..." style="width: 200px;">
+                                <select class="form-select form-select-sm" id="resultsTypeFilterUser" style="width: 120px;">
+                                    <option value="">All Types</option>
+                                    <option value="web">Web</option>
+                                    <option value="db">DB</option>
+                                    <option value="docker">Docker</option>
+                                    <option value="nginx">Nginx</option>
+                                    <option value="api">API</option>
+                                    <option value="system">System</option>
+                                </select>
+                                <select class="form-select form-select-sm" id="resultsLevelFilterUser" style="width: 120px;">
+                                    <option value="">All Levels</option>
+                                    <option value="ERROR">ERROR</option>
+                                    <option value="WARNING">WARNING</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="DEBUG">DEBUG</option>
+                                    <option value="UNKNOWN">UNKNOWN</option>
+                                </select>
+                                <button class="btn btn-sm btn-success" id="refreshUserResultsBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="userResultsContainer" style="max-height: 600px; overflow-y: auto;">
+                                <div id="userResultsTableBody">
+                                    <div class="text-center text-muted p-4">Loading results...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Section -->
+        <div id="adminSection" style="display: none;">
+
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <ul class="nav nav-tabs" id="adminTabs">
+                        <li class="nav-item">
+                            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#statsTab">
+                                <i class="fas fa-chart-bar me-1"></i> Statistics
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#allLogsTab">
+                                <i class="fas fa-file-alt me-1"></i> All Logs
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#resultsTab">
+                                <i class="fas fa-chart-line me-1"></i> Results
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#usersTab">
+                                <i class="fas fa-users me-1"></i> Users
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#invitesTab">
+                                <i class="fas fa-envelope me-1"></i> Invites
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#systemTab">
+                                <i class="fas fa-server me-1"></i> System Info
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="tab-content">
+                <!-- Statistics Tab -->
+                <div class="tab-pane fade show active" id="statsTab">
+                    <!-- Upload Section for Admin -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0"><i class="fas fa-cloud-upload-alt me-2"></i>Upload Log File</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="dropZoneAdmin" class="drop-zone" style="border: 2px dashed #2563eb; padding: 30px; text-align: center; border-radius: 10px; background: #f8fafc;">
+                                        <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3 d-block"></i>
+                                        <h5>Drag and Drop your file here</h5>
+                                        <p class="text-muted">or click the button below to select a file</p>
+                                        <form id="uploadFormAdmin" enctype="multipart/form-data" class="mt-3">
+                                            <input type="file" class="form-control form-control-lg" id="logFileAdmin" accept=".log,.txt,.csv">
+                                            <button type="submit" class="btn btn-primary btn-lg mt-3">
+                                                <i class="fas fa-upload me-2"></i>Upload File
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <div id="uploadProgressAdmin" class="progress mt-3" style="display: none;">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div id="uploadStatusAdmin" class="mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body">
+                                    <h6>Total Users</h6>
+                                    <h3 id="totalUsers">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h6>Active Users</h6>
+                                    <h3 id="activeUsers">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h6>Total Logs</h6>
+                                    <h3 id="adminTotalLogs">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h6>Total Errors</h6>
+                                    <h3 id="totalErrors">0</h3>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-warning text-white">
+                                    <h6 class="mb-0">Error Distribution</h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="errorChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">Activity (Last 7 Days)</h6>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="activityChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- All Logs Tab -->
+                <div class="tab-pane fade" id="allLogsTab">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">All Logs</h5>
+                            <div>
+                                <button class="btn btn-sm btn-success me-2 d-none" id="refreshAdminLogsBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                                <button class="btn btn-sm btn-danger" id="bulkDeleteLogsBtn">
+                                    <i class="fas fa-trash me-1"></i>Bulk Delete
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="allLogsTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th><input type="checkbox" id="selectAllLogs"></th>
+                                            <th>ID</th>
+                                            <th>Filename</th>
+                                            <th>User</th>
+                                            <th>Status</th>
+                                            <th>Uploaded</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="allLogsTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Tab -->
+                <div class="tab-pane fade" id="resultsTab">
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-list-alt me-2"></i>Results</h5>
+                            <div class="d-flex gap-2">
+                                <input type="text" class="form-control form-control-sm" id="resultsSearch" placeholder="Search messages..." style="width: 200px;">
+                                <select class="form-select form-select-sm" id="resultsTypeFilter" style="width: 120px;">
+                                    <option value="">All Types</option>
+                                    <option value="web">Web</option>
+                                    <option value="db">DB</option>
+                                    <option value="docker">Docker</option>
+                                    <option value="nginx">Nginx</option>
+                                    <option value="api">API</option>
+                                    <option value="system">System</option>
+                                </select>
+                                <select class="form-select form-select-sm" id="resultsLevelFilter" style="width: 120px;">
+                                    <option value="">All Levels</option>
+                                    <option value="ERROR">ERROR</option>
+                                    <option value="WARNING">WARNING</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="DEBUG">DEBUG</option>
+                                    <option value="UNKNOWN">UNKNOWN</option>
+                                </select>
+                                <button class="btn btn-sm btn-success" id="refreshResultsBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="resultsContainer" class="results-container" style="max-height: 600px; overflow-y: auto;">
+                                <div id="resultsTableBody">
+                                    <div class="text-center text-muted p-4">Loading results...</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Tab -->
+                <div class="tab-pane fade" id="usersTab">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Users</h5>
+                            <div>
+                                <button class="btn btn-sm btn-primary me-2" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                                    <i class="fas fa-plus me-1"></i>Add User
+                                </button>
+                                <button class="btn btn-sm btn-success d-none" id="refreshUsersBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="usersTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Active</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="usersTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Invites Tab -->
+                <div class="tab-pane fade" id="invitesTab">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Invite Requests</h5>
+                            <div>
+                                <button class="btn btn-sm btn-success" id="refreshInvitesBtn">
+                                    <i class="fas fa-sync-alt me-1"></i>Refresh
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover" id="invitesTable">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Email</th>
+                                            <th>Status</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="invitesTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Info Tab -->
+                <div class="tab-pane fade" id="systemTab">
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h6 class="mb-0"><i class="fas fa-server me-2"></i>System</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless">
+                                        <tbody id="systemTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h6 class="mb-0"><i class="fas fa-microchip me-2"></i>CPU</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless">
+                                        <tbody id="cpuTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0"><i class="fas fa-memory me-2"></i>Memory</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless">
+                                        <tbody id="memoryTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-white">
+                                    <h6 class="mb-0"><i class="fas fa-hdd me-2"></i>Disk</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless">
+                                        <tbody id="diskTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-secondary">
+                                <div class="card-header bg-secondary text-white">
+                                    <h6 class="mb-0"><i class="fas fa-network-wired me-2"></i>Network</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless">
+                                        <tbody id="networkTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card border-danger">
+                                <div class="card-header bg-danger text-white">
+                                    <h6 class="mb-0"><i class="fas fa-database me-2"></i>Redis</h6>
+                                </div>
+                                <div class="card-body">
+                                    <table class="table table-sm table-borderless">
+                                        <tbody id="redisTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Profile Page Overlay -->
+    <div id="profilePage" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8f9fa; z-index: 1040; overflow-y: auto; padding: 80px 20px;">
+        <div class="container" style="max-width: 800px;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-user-circle me-2"></i>My Profile</h2>
+                <button class="btn btn-outline-secondary" onclick="App.closeProfile()">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Dashboard
+                </button>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-id-card me-2"></i>Account Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Name</label>
+                            <p class="fw-bold fs-5" id="profileName">-</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Email</label>
+                            <p class="fw-bold fs-5" id="profileEmail">-</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Role</label>
+                            <p id="profileRole">-</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Account Status</label>
+                            <p id="profileIsActive">-</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Email Verified</label>
+                            <p id="profileEmailVerified">-</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Tenant ID</label>
+                            <p><code id="profileTenantId" class="bg-light px-2 py-1 rounded" style="word-break: break-all;"></code></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Telegram Chat ID</label>
+                            <p id="profileTelegram">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Usage & Subscription</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Current Month Usage</label>
+                            <h3 id="profileUsageCurrent" class="text-primary">0</h3>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Monthly Quota</label>
+                            <h3 id="profileQuota" class="text-success">0</h3>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label text-muted">Remaining</label>
+                            <h3 id="profileRemaining" class="text-warning">0</h3>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Subscription Tier</label>
+                            <p id="profileTier"><span class="badge bg-info">-</span></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label text-muted">Usage Reset At</label>
+                            <p id="profileUsageReset">-</p>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="form-label text-muted">Subscription Expires At</label>
+                            <p id="profileSubExpires">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="fas fa-key me-2"></i>API Keys</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Manage your API keys for programmatic log uploads.</p>
+                    <button class="btn btn-primary" onclick="App.openCreateApiKeyModal()">
+                        <i class="fas fa-plus me-1"></i>Create New API Key
+                    </button>
+                    <div class="mt-3">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Prefix</th>
+                                    <th>Status</th>
+                                    <th>Expires</th>
+                                </tr>
+                            </thead>
+                            <tbody id="profileApiKeysTableBody">
+                                <!-- Filled by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                     <form id="loginModalForm">
+                         <div class="mb-3">
+                             <label for="modal-username" class="form-label">Username or Email</label>
+                             <input type="text" class="form-control" id="modal-username" required>
+                         </div>
+                         <div class="mb-3">
+                             <label for="modal-password" class="form-label">Password</label>
+                             <input type="password" class="form-control" id="modal-password" required>
+                         </div>
+                         <div class="mb-3 text-end">
+                             <a href="#" class="text-decoration-none" data-bs-toggle="modal" data-bs-target="#forgotPasswordModal" data-bs-dismiss="modal">
+                                Forgot Password?
+                             </a>
+                         </div>
+                         <button type="submit" class="btn btn-primary w-100">Login</button>
+                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div class="modal fade" id="forgotPasswordModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-white">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Forgot Password</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Enter your email address and we'll send you a link to reset your password.</p>
+                    <form id="forgotPasswordForm">
+                        <div class="mb-3">
+                            <label for="forgotEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="forgotEmail" placeholder="Enter your email" required>
+                        </div>
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="fas fa-paper-plane me-2"></i>Send Reset Link
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Request Invite Modal -->
+    <div class="modal fade" id="requestInviteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-envelope me-2"></i>Request an Invite</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Enter your email address to request an invite to the Logs Analyzer platform.</p>
+                    <form id="requestInviteForm">
+                        <div class="mb-3">
+                            <label for="inviteEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="inviteEmail" placeholder="Enter your email" required>
+                        </div>
+                        <button type="submit" class="btn btn-info w-100 text-white">
+                            <i class="fas fa-paper-plane me-2"></i>Request Invite
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verify Email Modal -->
+    <div class="modal fade" id="verifyEmailModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Verify Email</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Enter the verification token sent to your email.</p>
+                    <form id="verifyEmailForm">
+                        <div class="mb-3">
+                            <label for="verifyToken" class="form-label">Verification Token</label>
+                            <input type="text" class="form-control" id="verifyToken" placeholder="Enter your token" required>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100">
+                            <i class="fas fa-check me-2"></i>Verify Email
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create API Key Modal -->
+    <div class="modal fade" id="createApiKeyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title"><i class="fas fa-key me-2"></i>Create API Key</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createApiKeyForm">
+                        <div class="mb-3">
+                            <label for="apiKeyName" class="form-label">Key Name</label>
+                            <input type="text" class="form-control" id="apiKeyName" placeholder="e.g., Upload Script Key" required>
+                            <div class="form-text">Give your API key a descriptive name to identify its purpose.</div>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Note:</strong> API keys are used for uploading logs programmatically. The key will be shown only once upon creation.
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-plus me-1"></i>Create API Key
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Key Display Modal (after creation) -->
+    <div class="modal fade" id="apiKeyDisplayModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>API Key Created</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> Copy your API key now. You won't be able to see it again!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Key Name</label>
+                        <p class="fw-bold" id="createdKeyName"></p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">API Key</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="createdApiKey" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="App.copyApiKeyToClipboard()">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Key ID</label>
+                        <p id="createdKeyId"></p>
+                    </div>
+
+                    <hr>
+                    <h6 class="mb-3"><i class="fas fa-code me-2"></i>Code Examples</h6>
+
+                    <!-- Python -->
+                    <div class="mb-2">
+                        <button class="btn btn-outline-primary btn-sm w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#pythonExample" aria-expanded="false">
+                            <i class="fab fa-python me-2"></i>Python (requests)
+                        </button>
+                        <div class="collapse mt-2" id="pythonExample">
+                            <div class="position-relative">
+                                <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-1" onclick="App.copyCodeToClipboard('pythonCode')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <pre class="bg-light p-3 rounded border" style="max-height: 300px; overflow: auto;"><code id="pythonCode"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- JavaScript -->
+                    <div class="mb-2">
+                        <button class="btn btn-outline-warning btn-sm w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#jsExample" aria-expanded="false">
+                            <i class="fab fa-js-square me-2"></i>JavaScript (fetch)
+                        </button>
+                        <div class="collapse mt-2" id="jsExample">
+                            <div class="position-relative">
+                                <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-1" onclick="App.copyCodeToClipboard('jsCode')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <pre class="bg-light p-3 rounded border" style="max-height: 300px; overflow: auto;"><code id="jsCode"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Go -->
+                    <div class="mb-2">
+                        <button class="btn btn-outline-success btn-sm w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#goExample" aria-expanded="false">
+                            <i class="fas fa-code me-2"></i>Go (net/http)
+                        </button>
+                        <div class="collapse mt-2" id="goExample">
+                            <div class="position-relative">
+                                <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-1" onclick="App.copyCodeToClipboard('goCode')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <pre class="bg-light p-3 rounded border" style="max-height: 300px; overflow: auto;"><code id="goCode"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- cURL -->
+                    <div class="mb-2">
+                        <button class="btn btn-outline-secondary btn-sm w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#curlExample" aria-expanded="false">
+                            <i class="fas fa-terminal me-2"></i>cURL
+                        </button>
+                        <div class="collapse mt-2" id="curlExample">
+                            <div class="position-relative">
+                                <button class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-1" onclick="App.copyCodeToClipboard('curlCode')">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <pre class="bg-light p-3 rounded border" style="max-height: 300px; overflow: auto;"><code id="curlCode"></code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Details Modal -->
+    <div class="modal fade" id="logDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-file-alt me-2"></i>Log Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="logDetailsContent">
+                        <div class="text-center text-muted p-4">Loading...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Results Modal -->
+    <div class="modal fade" id="logResultsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-list-ul me-2"></i>Log Results</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <div id="logResultsContent" style="max-height: 70vh; overflow-y: auto;">
+                        <div class="text-center text-muted p-4">Loading results...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Details Modal -->
+    <div class="modal fade" id="resultDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-info-circle me-2"></i>Result Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="resultDetailsContent">
+                        <div class="text-center text-muted p-4">Loading...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create New User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createUserForm">
+                        <div class="mb-3">
+                            <label for="newUserName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="newUserName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newUserEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="newUserEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newUserPassword" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="newUserPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newUserRole" class="form-label">Role</label>
+                            <select class="form-select" id="newUserRole">
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Create User</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Details Modal -->
+    <div class="modal fade" id="userDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-circle me-2"></i>User Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="userDetailsContent">
+                        <div class="text-center text-muted p-4">Loading...</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="libs/sweetalert/sweetalert2.min.js"></script>
+    <script src="libs/toastr/toastr.min.js"></script>
+    <script src="libs/chart/chart.umd.min.js"></script>
+    <script src="js/utils.js?v=1.0.2"></script>
+    <script src="js/api.js?v=1.0.2"></script>
+    <script src="js/app.js?v=1.0.2"></script>
+</body>
+</html>
