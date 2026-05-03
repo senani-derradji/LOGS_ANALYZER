@@ -11,7 +11,14 @@ from app.db.session import SessionLocal
 from sqlalchemy import desc
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
-from app.schemas.users_schema import UserCreate
+from app.schemas.users_schema import UserCreate, AdminCreateUser
+from app.security.jwt import create_password_hash
+from app.utils.logger import logger
+import secrets
+import string
+import uuid
+from app.utils.notification_manager import send_invite_email
+
 
 
 class AdminOperations:
@@ -204,18 +211,40 @@ class AdminUsersOperations(UserOperations):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    def create_user(self, user: UserCreate):
+    def create_user(self, user: AdminCreateUser):
+        import uuid
+
         db_user = self.get_user_by_email(user.email)
         if db_user is not None:
             raise HTTPException(
                 status_code=400, detail=f"User already exists: {db_user.name}"
             )
 
+        if user.role not in ["admin", "user"]:
+            raise HTTPException(status_code=400, detail="Invalid role")
+
+        if user.role == "user":
+            is_active = True
+            subscription_tier = "free"
+            monthly_quota = 10
+        else:
+            is_active = True
+            subscription_tier = "pro"
+            monthly_quota = 100
+
+        uid = str(uuid.uuid4())
+
         new_user = Users(
             name=user.name,
             email=user.email,
             password_hash=user.password,
-            telegram_chat_id=user.telegram_chat_id,
+            role=user.role,
+            is_active=is_active,
+            email_verified=True,
+            created_at=datetime.utcnow(),
+            tenant_id=uid,
+            subscription_tier=subscription_tier,
+            monthly_quota=monthly_quota,
         )
         try:
             self.db.add(new_user)
@@ -314,3 +343,61 @@ class AdminInviteRequestOperations(InviteOperations):
                 continue
         self.db.commit()
         return {"message": f"Deleted {deleted_count} invite requests"}
+
+    def activate_invite_request(self, email: str):
+        db_invite = self.get_invite_request_by_email(email)
+        if not db_invite:
+            raise HTTPException(status_code=404, detail="Invite request not found")
+        if db_invite.status != "pending":
+            raise HTTPException(status_code=400, detail=f"Invite request is already {db_invite.status}")
+
+        # Check if user already exists
+        existing_user = self.db.query(Users).filter(Users.email == email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail=f"User with email {email} already exists")
+
+        alphabet = string.ascii_letters + string.digits
+        random_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+
+        # name_from_email = email.split('@')[0]
+
+
+        password_hash = create_password_hash(random_password)
+
+        uid = str(uuid.uuid4())
+        new_user = Users(
+            name=email.split('@')[0],
+            email=email,
+            password_hash=password_hash,
+            role="user",
+            is_active=True,
+            email_verified=True,
+            created_at=datetime.utcnow(),
+            tenant_id=uid,
+            subscription_tier="free",
+            monthly_quota=10,
+        )
+        try:
+            self.db.add(new_user)
+            self.db.commit()
+            self.db.refresh(new_user)
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+        # Update invite status to activated
+        try:
+            db_invite.status = "activated"
+            self.db.commit()
+            self.db.refresh(db_invite)
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Failed to update invite status: {str(e)}")
+
+        return {
+            "message": "Invite activated successfully",
+            "email": email,
+            "password": random_password,
+            "user_id": new_user.id,
+            "status": "activated"
+        }

@@ -6,5 +6,5 @@ uploads/*
 .kilo/
 *test*
 logs_anz/
-front/*
+# front/*
 *.md

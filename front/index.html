@@ -322,46 +322,7 @@
                 </div>
             </div>
 
-            <!-- Results Section (User) -->
-            <div class="row mt-4">
-                <div class="col-md-12">
-                    <div class="card animate__animated animate__fadeInUp" style="animation-delay: 0.5s;">
-                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Results</h5>
-                            <div class="d-flex gap-2">
-                                <input type="text" class="form-control form-control-sm" id="resultsSearchUser" placeholder="Search messages..." style="width: 200px;">
-                                <select class="form-select form-select-sm" id="resultsTypeFilterUser" style="width: 120px;">
-                                    <option value="">All Types</option>
-                                    <option value="web">Web</option>
-                                    <option value="db">DB</option>
-                                    <option value="docker">Docker</option>
-                                    <option value="nginx">Nginx</option>
-                                    <option value="api">API</option>
-                                    <option value="system">System</option>
-                                </select>
-                                <select class="form-select form-select-sm" id="resultsLevelFilterUser" style="width: 120px;">
-                                    <option value="">All Levels</option>
-                                    <option value="ERROR">ERROR</option>
-                                    <option value="WARNING">WARNING</option>
-                                    <option value="INFO">INFO</option>
-                                    <option value="DEBUG">DEBUG</option>
-                                    <option value="UNKNOWN">UNKNOWN</option>
-                                </select>
-                                <button class="btn btn-sm btn-success" id="refreshUserResultsBtn">
-                                    <i class="fas fa-sync-alt me-1"></i>Refresh
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body p-0">
-                            <div id="userResultsContainer" style="max-height: 600px; overflow-y: auto;">
-                                <div id="userResultsTableBody">
-                                    <div class="text-center text-muted p-4">Loading results...</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
         </div>
 
         <!-- Admin Section -->
@@ -611,6 +572,9 @@
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0"><i class="fas fa-envelope me-2"></i>Invite Requests</h5>
                             <div>
+                                <button class="btn btn-sm btn-primary me-2" data-bs-toggle="modal" data-bs-target="#createInviteModal">
+                                    <i class="fas fa-plus me-1"></i>Create Invite
+                                </button>
                                 <button class="btn btn-sm btn-success" id="refreshInvitesBtn">
                                     <i class="fas fa-sync-alt me-1"></i>Refresh
                                 </button>
@@ -1067,17 +1031,82 @@
         </div>
     </div>
 
-    <!-- Log Details Modal -->
-    <div class="modal fade" id="logDetailsModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+    <!-- Log Statistics Modal -->
+    <div class="modal fade" id="logStatisticsModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
             <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title"><i class="fas fa-file-alt me-2"></i>Log Details</h5>
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-chart-bar me-2"></i>Log Statistics: <span id="statsFileName"></span></h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="logDetailsContent">
-                        <div class="text-center text-muted p-4">Loading...</div>
+                    <!-- Summary Cards -->
+                    <div class="row mb-4" id="logStatsSummary">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <h2 id="statTotalResults">0</h2>
+                                    <small>Total Results</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body text-center">
+                                    <h2 id="statErrors">0</h2>
+                                    <small>Errors</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body text-center">
+                                    <h2 id="statWarnings">0</h2>
+                                    <small>Warnings</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <h2 id="statInfo">0</h2>
+                                    <small>Info</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <input type="text" class="form-control" id="statsSearch" placeholder="Search messages...">
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="statsLevelFilter">
+                                <option value="">All Levels</option>
+                                <option value="ERROR">ERROR</option>
+                                <option value="WARNING">WARNING</option>
+                                <option value="INFO">INFO</option>
+                                <option value="DEBUG">DEBUG</option>
+                                <option value="UNKNOWN">UNKNOWN</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <select class="form-select" id="statsTypeFilter">
+                                <option value="">All Types</option>
+                                <option value="web">Web</option>
+                                <option value="db">DB</option>
+                                <option value="docker">Docker</option>
+                                <option value="nginx">Nginx</option>
+                                <option value="api">API</option>
+                                <option value="system">System</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Results List -->
+                    <div id="logStatsContent" style="max-height: 500px; overflow-y: auto;">
+                        <div class="text-center text-muted p-4">Loading statistics...</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1180,10 +1209,38 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
-        </div>
-    </div>
+     </div>
+     </div>
 
-    <script src="libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+     <!-- Create Invite Modal (Admin) -->
+     <div class="modal fade" id="createInviteModal" tabindex="-1">
+         <div class="modal-dialog">
+             <div class="modal-content">
+                 <div class="modal-header bg-primary text-white">
+                     <h5 class="modal-title"><i class="fas fa-envelope me-2"></i>Create Invite</h5>
+                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                 </div>
+                 <div class="modal-body">
+                     <p class="text-muted mb-3">Send an invite request to a user via email.</p>
+                     <form id="createInviteForm">
+                         <div class="mb-3">
+                             <label for="inviteEmailAdmin" class="form-label">Email Address</label>
+                             <input type="email" class="form-control" id="inviteEmailAdmin" placeholder="Enter user email" required>
+                             <div class="form-text">The user will receive an email with an invitation link to register.</div>
+                         </div>
+                         <button type="submit" class="btn btn-primary w-100">
+                             <i class="fas fa-paper-plane me-2"></i>Send Invite
+                         </button>
+                     </form>
+                 </div>
+                 <div class="modal-footer">
+                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                 </div>
+             </div>
+         </div>
+     </div>
+
+     <script src="libs/bootstrap/js/bootstrap.bundle.min.js"></script>
     <script src="libs/sweetalert/sweetalert2.min.js"></script>
     <script src="libs/toastr/toastr.min.js"></script>
     <script src="libs/chart/chart.umd.min.js"></script>

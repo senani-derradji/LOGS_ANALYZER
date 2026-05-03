@@ -5,7 +5,8 @@ const App = {
     autoRefreshInterval: null,
     _allResults: [],
     logs: [],
-    _allUserResults: [],
+    _currentLogResults: [],
+    _currentLogId: null,
      init() {
          console.log('App initializing...');
          try {
@@ -164,11 +165,18 @@ const App = {
         document.getElementById('resultsLevelFilter')?.addEventListener('change', () => this.filterResults());
         document.getElementById('resultsTypeFilter')?.addEventListener('change', () => this.filterResults());
 
-        // User results search and filter
-        document.getElementById('resultsSearchUser')?.addEventListener('input', Utils.debounce(() => this.filterUserResults(), 300));
-        document.getElementById('resultsLevelFilterUser')?.addEventListener('change', () => this.filterUserResults());
-        document.getElementById('resultsTypeFilterUser')?.addEventListener('change', () => this.filterUserResults());
-        document.getElementById('refreshUserResultsBtn')?.addEventListener('click', () => this.loadUserResults());
+        // Log statistics filters
+        document.getElementById('statsSearch')?.addEventListener('input', Utils.debounce(() => this.filterLogStatistics(), 300));
+        document.getElementById('statsLevelFilter')?.addEventListener('change', () => this.filterLogStatistics());
+        document.getElementById('statsTypeFilter')?.addEventListener('change', () => this.filterLogStatistics());
+
+        // Hook up statistics modal show event
+        const logStatisticsModal = document.getElementById('logStatisticsModal');
+        if (logStatisticsModal) {
+            logStatisticsModal.addEventListener('shown.bs.modal', () => {
+                this.loadLogStatistics();
+            });
+        }
     },
 
     checkAuth() {
@@ -667,8 +675,10 @@ const App = {
             displayModal.show();
 
             // Refresh the API keys list
-            this.loadApiKeys();
-            this.loadProfileApiKeys();
+            await Promise.all([
+                this.loadApiKeys(),
+                this.loadProfileApiKeys()
+            ]);
 
             Utils.showToast('API key created successfully', 'success');
         } catch (error) {
@@ -680,36 +690,160 @@ const App = {
 
     populateCodeExamples(apiKey) {
         const BASE_URL = API_BASE_URL;
-        
+
         // Python
         const pythonCode = `import requests
+import sys
+import os
 
-url = "${BASE_URL}/logs/upload"
-headers = {
-    "Authorization": "Bearer ${apiKey}"
-}
+def upload_log_file(file_path: str, api_key: str, base_url: str = "${BASE_URL}") -> dict:
+    """
+    Upload a log file to the Logs Analyzer API.
 
-with open("your_file.log", "rb") as f:
-    files = {"file": f}
-    response = requests.post(url, headers=headers, files=files)
+    Args:
+        file_path: Path to the log file (.log, .txt, .csv)
+        api_key: Your API key (keep secret!)
+        base_url: API base URL (default: "${BASE_URL}")
 
-print(response.json())`;
+    Returns:
+        dict: API response with log details
+
+    Raises:
+        FileNotFoundError: If the log file doesn't exist
+        requests.RequestException: If the API request fails
+    """
+    # Validate file exists
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Log file not found: {file_path}")
+
+    # Prepare endpoint and headers
+    url = f"{base_url}/logs/upload"
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
+
+    try:
+        # Upload file with timeout (30 seconds)
+        with open(file_path, "rb") as f:
+            files = {"file": f}
+            response = requests.post(
+                url,
+                headers=headers,
+                files=files,
+                timeout=30  # seconds
+            )
+
+        # Raise an exception for bad status codes
+        response.raise_for_status()
+
+        # Parse and return JSON response
+        result = response.json()
+        print(f"✅ Upload successful! Log ID: {result.get('id')}")
+        return result
+
+    except requests.exceptions.Timeout:
+        print("❌ Request timed out after 30 seconds", file=sys.stderr)
+        raise
+    except requests.exceptions.HTTPError as e:
+        print(f"❌ HTTP error {response.status_code}: {response.text}", file=sys.stderr)
+        raise
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Network error: {str(e)}", file=sys.stderr)
+        raise
+    except ValueError as e:
+        print(f"❌ Invalid JSON response: {str(e)}", file=sys.stderr)
+        raise
+
+
+# Example usage
+if __name__ == "__main__":
+    API_KEY = "${apiKey}"  # Replace with your actual API key
+    LOG_FILE = "application.log"  # Path to your log file
+
+    try:
+        result = upload_log_file(LOG_FILE, API_KEY)
+        print(f"Log uploaded successfully. ID: {result.get('id')}")
+    except Exception as e:
+        print(f"Upload failed: {e}", file=sys.stderr)
+        sys.exit(1)`;
         document.getElementById('pythonCode').textContent = pythonCode;
 
-        // JavaScript
-        const jsCode = `const formData = new FormData();
-formData.append('file', fileInput.files[0]);
+        // JavaScript (Node.js with fetch)
+        const jsCode = `const fs = require('fs');
+const path = require('path');
+const { pipeline } = require('stream');
+const { promisify } = require('util');
 
-const response = await fetch("${BASE_URL}/logs/upload", {
-    method: "POST",
-    headers: {
-        "Authorization": "Bearer ${apiKey}"
-    },
-    body: formData
-});
+const API_BASE_URL = "${BASE_URL}";
+const API_KEY = "${apiKey}";
 
-const result = await response.json();
-console.log(result);`;
+/**
+ * Upload a log file to the Logs Analyzer API
+ * @param {string} filePath - Path to the log file
+ * @returns {Promise<object>} API response
+ */
+async function uploadLogFile(filePath) {
+    // Validate file exists
+    const stats = fs.statSync(filePath);
+    if (!stats.isFile()) {
+        throw new Error(\`Invalid file path: \${filePath}\`);
+    }
+
+    const url = \`\${API_BASE_URL}/logs/upload\`;
+
+    // Create FormData
+    const formData = new FormData();
+    formData.append('file', fs.createReadStream(filePath));
+
+    const options = {
+        method: 'POST',
+        headers: {
+            'Authorization': \`Bearer \${API_KEY}\`
+            // Note: Do NOT set Content-Type when using FormData;
+            // the browser will set it with the correct boundary
+        },
+        body: formData,
+        timeout: 30000  // 30 seconds
+    };
+
+    try {
+        const response = await fetch(url, options);
+
+        // Handle HTTP errors
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(
+                \`Upload failed (\${response.status}): \${errorData.detail || response.statusText}\`
+            );
+        }
+
+        const result = await response.json();
+        console.log('✅ Upload successful:', result);
+        return result;
+
+    } catch (error) {
+        if (error.name === 'TimeoutError') {
+            console.error('❌ Request timed out');
+        } else if (error.message.includes('ECONNREFUSED')) {
+            console.error('❌ Connection refused - is the server running?');
+        } else {
+            console.error('❌ Upload failed:', error.message);
+        }
+        throw error;
+    }
+}
+
+// Example usage
+(async () => {
+    try {
+        const logFile = 'application.log';  // Your log file path
+        const result = await uploadLogFile(logFile);
+        console.log(\`Log ID: \${result.id}\`);
+    } catch (error) {
+        console.error('Fatal error:', error.message);
+        process.exit(1);
+    }
+})();`;
         document.getElementById('jsCode').textContent = jsCode;
 
         // Go
@@ -722,36 +856,189 @@ import (
     "mime/multipart"
     "net/http"
     "os"
+    "time"
 )
 
+/**
+ * Upload a log file to the Logs Analyzer API
+ *
+ * Example usage:
+ *   go run upload.go --file=application.log --key=your_api_key
+ */
 func main() {
-    url := "${BASE_URL}/logs/upload"
-    file, _ := os.Open("your_file.log")
+    // Configuration
+    baseURL := "${BASE_URL}"
+    apiKey := "${apiKey}"
+    filePath := "your_file.log"  // Replace with your file path
+
+    // Validate file exists
+    if _, err := os.Stat(filePath); os.IsNotExist(err) {
+        fmt.Fprintf(os.Stderr, "❌ File not found: %s\\n", filePath)
+        os.Exit(1)
+    }
+
+    // Prepare request
+    url := fmt.Sprintf("%s/logs/upload", baseURL)
+
+    // Open file
+    file, err := os.Open(filePath)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "❌ Failed to open file: %v\\n", err)
+        os.Exit(1)
+    }
     defer file.Close()
 
-    body := &bytes.Buffer{}
-    writer := multipart.NewWriter(body)
-    part, _ := writer.CreateFormFile("file", "your_file.log")
-    io.Copy(part, file)
+    // Create multipart body
+    var body bytes.Buffer
+    writer := multipart.NewWriter(&body)
+    part, err := writer.CreateFormFile("file", filePath)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "❌ Failed to create form file: %v\\n", err)
+        os.Exit(1)
+    }
+
+    // Copy file content to form
+    if _, err = io.Copy(part, file); err != nil {
+        fmt.Fprintf(os.Stderr, "❌ Failed to copy file content: %v\\n", err)
+        os.Exit(1)
+    }
+
+    // Close writer to finalize multipart body
     writer.Close()
 
-    req, _ := http.NewRequest("POST", url, body)
-    req.Header.Set("Authorization", "Bearer ${apiKey}")
+    // Create HTTP request
+    req, err := http.NewRequest("POST", url, &body)
+    if err != nil {
+        fmt.Fprintf(os.Stderr, "❌ Failed to create request: %v\\n", err)
+        os.Exit(1)
+    }
+
+    // Set headers
+    req.Header.Set("Authorization", "Bearer "+apiKey)
     req.Header.Set("Content-Type", writer.FormDataContentType())
 
-    client := &http.Client{}
+    // Configure HTTP client with timeout
+    client := &http.Client{
+        Timeout: 30 * time.Second,
+    }
+
+    // Execute request
     resp, err := client.Do(req)
     if err != nil {
-        panic(err)
+        fmt.Fprintf(os.Stderr, "❌ Request failed: %v\\n", err)
+        os.Exit(1)
     }
     defer resp.Body.Close()
+
+    // Read response body
+    buf := new(bytes.Buffer)
+    buf.ReadFrom(resp.Body)
+
+    // Check status code
+    if resp.StatusCode >= 400 {
+        fmt.Fprintf(os.Stderr, "❌ Upload failed (status %d): %s\\n",
+            resp.StatusCode, buf.String())
+        os.Exit(1)
+    }
+
+    // Success
+    fmt.Printf("✅ Upload successful! Response: %s\\n", buf.String())
 }`;
         document.getElementById('goCode').textContent = goCode;
 
         // cURL
-        const curlCode = `curl -X POST "${BASE_URL}/logs/upload" \\
+        const curlCode = `#!/bin/bash
+# Upload a log file using cURL with error handling
+
+API_BASE_URL="${BASE_URL}"
+API_KEY="${apiKey}"
+LOG_FILE="your_file.log"
+
+# Color codes for output
+RED='\\033[0;31m'
+GREEN='\\033[0;32m'
+YELLOW='\\033[1;33m'
+NC='\\033[0m' # No Color
+
+# Check if file exists
+if [[ ! -f "$LOG_FILE" ]]; then
+    echo -e "${RED}❌ Error: File not found: $LOG_FILE${NC}"
+    exit 1
+fi
+
+# Check file size
+FILE_SIZE=$(wc -c < "$LOG_FILE")
+echo -e "${YELLOW}📤 Uploading $LOG_FILE (${FILE_SIZE} bytes)...${NC}"
+
+# Perform upload with verbose output and error handling
+response=$(curl -s -w "\\n%{http_code}" -X POST "${API_BASE_URL}/logs/upload" \\
   -H "Authorization: Bearer ${apiKey}" \\
-  -F "file=@your_file.log"`;
+  -F "file=@${LOG_FILE}" \\
+  --connect-timeout 10 \\
+  --max-time 60 2>&1) || {
+    echo -e "${RED}❌ cURL command failed${NC}"
+    exit 1
+}
+
+# Separate body and status code
+http_code=$(echo "$response" | tail -n1)
+body=$(echo "$response" | sed '$d')
+
+# Handle response based on status code
+case $http_code in
+    200|201)
+        echo -e "${GREEN}✅ Upload successful!${NC}"
+        echo "Response: $body"
+        # Extract log ID if available (requires jq)
+        if command -v jq &> /dev/null; then
+            log_id=$(echo "$body" | jq -r '.id // empty')
+            if [[ -n "$log_id" ]]; then
+                echo "Log ID: $log_id"
+            fi
+        fi
+        ;;
+    400)
+        echo -e "${RED}❌ Bad Request: Invalid file or parameters${NC}"
+        echo "Details: $body"
+        exit 1
+        ;;
+    401)
+        echo -e "${RED}❌ Unauthorized: Invalid API key${NC}"
+        exit 1
+        ;;
+    403)
+        echo -e "${RED}❌ Forbidden: Insufficient permissions${NC}"
+        exit 1
+        ;;
+    429)
+        echo -e "${YELLOW}⚠️  Rate limit exceeded. Please try again later.${NC}"
+        exit 1
+        ;;
+    500)
+        echo -e "${RED}❌ Server error (500). Please try again or contact support.${NC}"
+        exit 1
+        ;;
+    *)
+        echo -e "${RED}❌ Unexpected HTTP status: $http_code${NC}"
+        echo "Response: $body"
+        exit 1
+        ;;
+esac
+
+# Optional: Verify upload by fetching the log (requires jq)
+if command -v jq &> /dev/null && [[ -n "$log_id" ]]; then
+    echo -e "${YELLOW}🔍 Verifying upload...${NC}"
+    verify_response=$(curl -s -w "\\n%{http_code}" \\
+      -H "Authorization: Bearer ${apiKey}" \\
+      "${API_BASE_URL}/logs/${log_id}" 2>&1)
+
+    verify_code=$(echo "$verify_response" | tail -n1)
+    if [[ $verify_code == "200" ]]; then
+        echo -e "${GREEN}✅ Log verified Successfully${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Verification returned status: $verify_code${NC}"
+    fi
+fi`;
         document.getElementById('curlCode').textContent = curlCode;
     },
 
@@ -763,10 +1050,12 @@ func main() {
         try {
             await Api.revokeApiKey(keyId);
             Utils.showToast('API key revoked successfully', 'success');
-            this.loadApiKeys();
-            this.loadProfileApiKeys();
+            await Promise.all([
+                this.loadApiKeys(),
+                this.loadProfileApiKeys()
+            ]);
         } catch (error) {
-            Utils.showToast(error.message || 'Failed to load log details', 'error');
+            Utils.showToast(error.message || 'Failed to revoke API key', 'error');
         }
     },
 
@@ -833,9 +1122,128 @@ func main() {
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
         } catch (error) {
-            Utils.showToast(error.message || 'Failed to load results', 'error');
+            Utils.showToast(error.message || 'Failed to load log details', 'error');
         }
     },
+
+    async showLogStatistics(logId) {
+        this._currentLogId = logId;
+        this._currentLogResults = [];
+        // Reset filters
+        const searchInput = document.getElementById('statsSearch');
+        const levelFilter = document.getElementById('statsLevelFilter');
+        const typeFilter = document.getElementById('statsTypeFilter');
+        if (searchInput) searchInput.value = '';
+        if (levelFilter) levelFilter.value = '';
+        if (typeFilter) typeFilter.value = '';
+
+        const modalEl = document.getElementById('logStatisticsModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+    },
+
+    async loadLogStatistics() {
+        try {
+            const currentLogId = this._currentLogId; // Capture to avoid race
+            if (!currentLogId) return;
+
+            const results = await Api.getUserResultsByLog(currentLogId);
+            // Only update if still the same log
+            if (this._currentLogId !== currentLogId) return;
+            this._currentLogResults = Array.isArray(results) ? results : [];
+
+            // Find log filename
+            const log = this.logs.find(l => l.id === currentLogId);
+            document.getElementById('statsFileName').textContent = log ? log.file_name : `Log #${currentLogId}`;
+
+            this.updateLogStatsSummary(this._currentLogResults);
+            this.filterLogStatistics();
+        } catch (error) {
+            console.error('Error loading log statistics:', error);
+            Utils.showToast('Failed to load statistics', 'error');
+            document.getElementById('logStatsContent').innerHTML =
+                '<div class="text-center text-danger p-4">Error loading statistics</div>';
+        }
+    },
+
+    updateLogStatsSummary(results) {
+        const total = results.length;
+        const errors = results.filter(r => r.level === 'ERROR').length;
+        const warnings = results.filter(r => r.level === 'WARNING').length;
+        const info = results.filter(r => r.level === 'INFO').length;
+
+        document.getElementById('statTotalResults').textContent = total;
+        document.getElementById('statErrors').textContent = errors;
+        document.getElementById('statWarnings').textContent = warnings;
+        document.getElementById('statInfo').textContent = info;
+    },
+
+    filterLogStatistics() {
+        const searchTerm = document.getElementById('statsSearch')?.value?.toLowerCase() || '';
+        const levelFilter = document.getElementById('statsLevelFilter')?.value || '';
+        const typeFilter = document.getElementById('statsTypeFilter')?.value || '';
+
+        let filtered = this._currentLogResults || [];
+
+        if (searchTerm) {
+            filtered = filtered.filter(r =>
+                (r.message || '').toLowerCase().includes(searchTerm) ||
+                (r.source || r.detected_type || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (typeFilter) {
+            filtered = filtered.filter(r => ((r.source || r.detected_type || '').toLowerCase() === typeFilter.toLowerCase()));
+        }
+
+        if (levelFilter) {
+            filtered = filtered.filter(r => r.level === levelFilter);
+        }
+
+        this.renderLogStatistics(filtered);
+    },
+
+    renderLogStatistics(results) {
+        const container = document.getElementById('logStatsContent');
+
+        if (!results || results.length === 0) {
+            container.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>No results match current filters</div>';
+            return;
+        }
+
+        container.innerHTML = results.map(result => `
+            <div class="result-card border-start border-4 ${this.getLevelBorderClass(result.level)} p-3 mb-2 rounded bg-light">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="fw-bold">#${result.id}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        ${Utils.getLevelBadge(result.level)}
+                        <button class="btn btn-sm btn-outline-info" onclick="App.showResultDetails(${result.id})" title="Details">
+                            <i class="fas fa-info-circle"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="result-message mb-2" style="word-break: break-word;">${Utils.escapeHtml(result.message || '-')}</div>
+                <div class="d-flex justify-content-between text-muted small">
+                    <span><i class="fas fa-tag me-1"></i>${Utils.escapeHtml(result.source || result.detected_type || '-')}</span>
+                    <span><i class="fas fa-clock me-1"></i>${Utils.formatDate(result.created_at)}</span>
+                </div>
+            </div>
+        `).join('');
+    },
+
+    getLevelBorderClass(level) {
+        const classes = {
+            'ERROR': 'border-danger',
+            'WARNING': 'border-warning',
+            'INFO': 'border-info',
+            'DEBUG': 'border-secondary',
+            'UNKNOWN': 'border-dark'
+        };
+        return classes[level] || classes['UNKNOWN'];
+    },
+
 
     copyApiKeyToClipboard() {
         const keyInput = document.getElementById('createdApiKey');
@@ -1092,8 +1500,6 @@ func main() {
 
             if (!this.logs || this.logs.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No logs found. Upload a file to get started.</td></tr>';
-                this._allUserResults = [];
-                this.renderUserResults([]);
                 return;
             }
 
@@ -1104,15 +1510,20 @@ func main() {
                     <td>${log.id}</td>
                     <td>${Utils.escapeHtml(log.file_name)}</td>
                     <td>${Utils.getStatusBadge(log.status)}</td>
-
+                    <td>${Utils.formatDate(log.created_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="App.showLogStatistics(${log.id})" title="Statistics">
+                            <i class="fas fa-chart-bar"></i> Statistics
+                        </button>
+                        <button class="btn btn-sm btn-danger ms-1" onclick="App.deleteLog(${log.id})" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
 
             this.updateLogStats(this.logs);
-            console.log('Calling loadUserResults...');
-            this.loadUserResults();
-            console.log('loadUserResults called');
         } catch (error) {
             console.error('Error loading logs:', error);
             this.logs = [];
@@ -1842,58 +2253,6 @@ func main() {
         }
     },
 
-    async loadUserResults() {
-        try {
-            console.log('loadUserResults called, logs:', this.logs);
-            if (!this.logs || this.logs.length === 0) {
-                console.log('No logs found, showing empty state');
-                const container = document.getElementById('userResultsTableBody');
-                if (container) {
-                    container.innerHTML = '<div class="text-center text-muted p-4">No results yet. Upload and process logs to see results.</div>';
-                }
-                this._allUserResults = [];
-                return;
-            }
-
-            console.log('Fetching results for', this.logs.length, 'logs');
-            const allResults = [];
-            const promises = this.logs.map(async (log) => {
-                try {
-                    console.log('Fetching results for log', log.id);
-                    const results = await Api.getUserResultsByLog(log.id);
-                    console.log('Results for log', log.id, ':', results);
-                    return Array.isArray(results) ? results : [];
-                } catch (err) {
-                    console.warn(`Failed to load results for log ${log.id}:`, err);
-                    return [];
-                }
-            });
-
-            const resultsArrays = await Promise.all(promises);
-            resultsArrays.forEach((results, idx) => {
-                if (results && results.length > 0) {
-                    const log = this.logs[idx];
-                    results.forEach(r => {
-                        r.file_name = log.file_name;
-                    });
-                    allResults.push(...results);
-                }
-            });
-
-            allResults.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-            this._allUserResults = allResults;
-            console.log('User results loaded:', this._allUserResults.length, 'items');
-            this.filterUserResults();
-        } catch (error) {
-            console.error('Error loading user results:', error);
-            this._allUserResults = [];
-            const container = document.getElementById('userResultsTableBody');
-            if (container) {
-                container.innerHTML = '<div class="text-center text-danger p-4">Error loading results: ' + error.message + '</div>';
-            }
-        }
-    },
 
     filterResults() {
         const searchTerm = document.getElementById('resultsSearch')?.value?.toLowerCase() || '';
@@ -1920,31 +2279,6 @@ func main() {
         this.renderResults(filtered);
     },
 
-    filterUserResults() {
-        const searchTerm = document.getElementById('resultsSearchUser')?.value?.toLowerCase() || '';
-        const levelFilter = document.getElementById('resultsLevelFilterUser')?.value || '';
-        const typeFilter = document.getElementById('resultsTypeFilterUser')?.value || '';
-
-        let filtered = this._allUserResults || [];
-
-        if (searchTerm) {
-            filtered = filtered.filter(r =>
-                (r.message || '').toLowerCase().includes(searchTerm) ||
-                (r.source || r.detected_type || '').toLowerCase().includes(searchTerm)
-            );
-        }
-
-        if (typeFilter) {
-            const type = typeFilter.toLowerCase();
-            filtered = filtered.filter(r => ((r.source || r.detected_type || '').toLowerCase() === type));
-        }
-
-        if (levelFilter) {
-            filtered = filtered.filter(r => r.level === levelFilter);
-        }
-
-        this.renderUserResults(filtered);
-    },
 
     renderResults(results) {
         const container = document.getElementById('resultsTableBody');
@@ -1991,40 +2325,6 @@ func main() {
         `).join('');
     },
 
-    renderUserResults(results) {
-        const container = document.getElementById('userResultsTableBody');
-
-        if (!results || results.length === 0) {
-            container.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>No results found</div>';
-            return;
-        }
-
-        const getLevelColor = (level) => {
-            const colors = {
-                'ERROR': 'border-start border-4 border-danger',
-                'WARNING': 'border-start border-4 border-warning',
-                'INFO': 'border-start border-4 border-info',
-                'DEBUG': 'border-start border-4 border-secondary',
-                'UNKNOWN': 'border-start border-4 border-dark'
-            };
-            return colors[level] || colors['UNKNOWN'];
-        };
-
-        container.innerHTML = results.map(result => `
-            <div class="result-card ${getLevelColor(result.level)} p-3 mb-2 rounded bg-light">
-                <div class="mb-2">
-                    <span class="fw-bold">#${result.id}</span>
-                    <span class="badge bg-secondary ms-2">Log: ${result.log_id} (${Utils.escapeHtml(result.file_name || '-')})</span>
-                    ${Utils.getLevelBadge(result.level)}
-                </div>
-                <div class="result-message mb-2" style="word-break: break-word;">${Utils.escapeHtml(result.message || '-')}</div>
-                <div class="d-flex justify-content-between text-muted small">
-                    <span><i class="fas fa-tag me-1"></i>${Utils.escapeHtml(result.source || result.detected_type || '-')}</span>
-                    <span><i class="fas fa-clock me-1"></i>${Utils.formatDate(result.created_at)}</span>
-                </div>
-            </div>
-        `).join('');
-    },
 
     async deleteResult(resultId) {
         const confirmed = await Utils.confirmSwal('Delete Result', 'Are you sure you want to delete this result?');

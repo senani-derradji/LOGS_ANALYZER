@@ -20,7 +20,10 @@ from app.security.jwt import require_admin
 from app.middleware.rate_limit import check_rate_limit
 from fastapi import Request
 from app.utils.check_tier import check
-from app.utils.notification_manager import send_welcome_email, send_verification_email, send_reset_password_email
+from app.utils.notification_manager import (send_welcome_email,
+                                            send_verification_email,
+                                            send_reset_password_email,
+                                            send_invite_email)
 from app.utils.logger import logger
 import time
 from pydantic import EmailStr
@@ -41,6 +44,7 @@ class UserRoutes:
         self.router.add_api_route("/usage", self.get_usage, methods=["GET"])
         self.router.add_api_route("/verify_email", self.verify_email, methods=["GET"])
         self.router.add_api_route("/reset-password-page", self.reset_password_page, methods=["GET"])
+        self.router.add_api_route("/invite-page", self.invite_page, methods=["GET"])
         self.router.add_api_route("/demande_invite", self.demande_invite, methods=["POST"])
 
     async def user_login(
@@ -177,11 +181,8 @@ class UserRoutes:
         self,
         invite_data: InviteCreate,
         invite_ops: InviteOperations = Depends(get_invite_ops),
-        # user=Depends(get_current_user),
-        # user_ops: UserOperations = Depends(get_user_ops),
         admin=Depends(require_admin),
     ):
-
 
         token = secrets.token_urlsafe(32)
         expires_at = datetime.utcnow() + timedelta(days=1)
@@ -195,8 +196,25 @@ class UserRoutes:
         )
 
         invite_ops.change_status(invite_data.email, "completed")
+
+        # Build invite page link
+        from app.core.config import settings
+        protocol = "https://" if settings.ENVIRONMENT == "production" else "http://"
+        domain = settings.DOMAIN if settings.DOMAIN else "localhost:8000"
+        invite_link = f"{protocol}{domain}/api/v1/users/invite-page?token={token}"
+
+        # Extract name from email for personalization
+        name = invite_data.email.split('@')[0].title()
+
+        # Send invite email
+        await send_invite_email(
+            to_email=invite_data.email,
+            name=name,
+            invite_link=invite_link
+        )
+
         logger.info(f"invite_key created: {invite_key}")
-        logger.info(f"invite_endpoint: http://localhost:8000/api/v1/users/invite?token={token}")
+        logger.info(f"invite_page_link: {invite_link}")
 
         return InviteResponse(token=token, expires_at=expires_at)
 
@@ -301,6 +319,164 @@ class UserRoutes:
 
             </div>
 
+        </body>
+        </html>
+         """)
+
+    async def invite_page(self, token: str):
+        redis_client = get_redis()
+        invite_key = f"invite:{token}"
+        stored_email = await redis_client.get(invite_key)
+
+        if not stored_email:
+            return HTMLResponse("""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Invalid Invite</title>
+            </head>
+            <body style="font-family:Arial;background:#f4f6f8;display:flex;justify-content:center;align-items:center;height:100vh;">
+                <div style="background:white;padding:30px;border-radius:10px;width:400px;box-shadow:0 4px 20px rgba(0,0,0,0.1);text-align:center;">
+                    <h2 style="color:#dc2626;">Invalid or Expired Invite</h2>
+                    <p>This invitation link is no longer valid. Please request a new invitation.</p>
+                </div>
+            </body>
+            </html>
+            """, status_code=400)
+
+        if isinstance(stored_email, bytes):
+            stored_email = stored_email.decode()
+
+        return HTMLResponse(f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Your Invite Token</title>
+            <style>
+                body {{
+                    font-family:Arial,Helvetica,sans-serif;
+                    background:#f4f6f8;
+                    margin:0;
+                    padding:0;
+                    display:flex;
+                    justify-content:center;
+                    align-items:center;
+                    min-height:100vh;
+                }}
+                .container {{
+                    background:white;
+                    padding:40px;
+                    border-radius:12px;
+                    width:500px;
+                    max-width:90%;
+                    box-shadow:0 4px 20px rgba(0,0,0,0.1);
+                    text-align:center;
+                }}
+                h1 {{
+                    color:#111827;
+                    margin:0 0 10px 0;
+                    font-size:28px;
+                }}
+                .subtitle {{
+                    color:#6b7280;
+                    font-size:16px;
+                    margin-bottom:30px;
+                }}
+                .token-box {{
+                    background:#f3f4f6;
+                    border:2px dashed #2563eb;
+                    padding:20px;
+                    border-radius:8px;
+                    margin:20px 0;
+                    word-break:break-all;
+                }}
+                .token {{
+                    font-size:24px;
+                    font-weight:bold;
+                    color:#111827;
+                    letter-spacing:2px;
+                    font-family:monospace;
+                }}
+                .copy-btn {{
+                    background:#2563eb;
+                    color:white;
+                    border:none;
+                    padding:12px 24px;
+                    border-radius:6px;
+                    font-size:16px;
+                    cursor:pointer;
+                    margin-top:15px;
+                    transition:background 0.2s;
+                }}
+                .copy-btn:hover {{
+                    background:#1d4ed8;
+                }}
+                .copied {{
+                    color:#16a34a;
+                    font-size:14px;
+                    margin-top:10px;
+                    display:none;
+                }}
+                .instructions {{
+                    background:#fef3c7;
+                    padding:15px;
+                    border-radius:8px;
+                    margin-top:25px;
+                    font-size:14px;
+                    color:#92400e;
+                    text-align:left;
+                }}
+                .instructions ol {{
+                    margin:10px 0 0 0;
+                    padding-left:20px;
+                }}
+                .instructions li {{
+                    margin:5px 0;
+                }}
+                .email-info {{
+                    font-size:13px;
+                    color:#6b7280;
+                    margin-top:15px;
+                }}
+            </style>
+            <script>
+                function copyToken() {{
+                    navigator.clipboard.writeText("{token}").then(() => {{
+                        document.getElementById('copied').style.display = 'block';
+                        document.getElementById('copy-btn').textContent = 'Copied!';
+                        setTimeout(() => {{
+                            document.getElementById('copied').style.display = 'none';
+                            document.getElementById('copy-btn').textContent = 'Copy Token';
+                        }}, 2000);
+                    }});
+                }}
+            </script>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🎉 You're Invited!</h1>
+                <p class="subtitle">Use this token to complete your registration</p>
+
+                <div class="token-box">
+                    <div class="token">{token}</div>
+                </div>
+
+                <button class="copy-btn" id="copy-btn" onclick="copyToken()">Copy Token</button>
+                <p class="copied" id="copied">✓ Copied to clipboard!</p>
+
+                <p class="email-info">Invited email: {stored_email}</p>
+
+                <div class="instructions">
+                    <strong>How to use:</strong>
+                    <ol>
+                        <li>Copy the token above</li>
+                        <li>Go to the signup page</li>
+                        <li>Paste the token in the invitation field</li>
+                    </ol>
+                </div>
+            </div>
         </body>
         </html>
         """)

@@ -19,7 +19,9 @@ const Api = {
 
         const config = {
             ...options,
-            headers
+            headers,
+            cache: 'no-store',  // Prevent caching to ensure fresh data after mutations
+            next: { revalidate: 0 } // For SWR if used
         };
 
         try {
@@ -121,10 +123,14 @@ const Api = {
     },
 
     async createApiKey(keyData) {
-        return this.request('/api-keys', {
+        return this.request('/api-keys/', {
             method: 'POST',
             body: JSON.stringify(keyData)
         });
+    },
+
+    async getApiKeys() {
+        return this.request('/api-keys/');
     },
 
     async revokeApiKey(keyId) {
@@ -354,6 +360,12 @@ const Api = {
         return this.request(`/admin/invites/${email}/status`, {
             method: 'PATCH',
             body: JSON.stringify({ status })
+        });
+    },
+
+    async activateInvite(email) {
+        return this.request(`/admin/invites/${email}/activate`, {
+            method: 'POST'
         });
     },
 

@@ -17,7 +17,7 @@ class InviteOperations:
         try:
             db_invite = InviteRequest(
                 email=email,
-                status="PENDING",
+                status="pending",
                 created_at=datetime.utcnow()
             )
             self.db.add(db_invite)

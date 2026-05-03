@@ -5,7 +5,7 @@ from app.services.admin_services import (AdminOperations,
                                          AdminResultsOperations,
                                          AdminInviteRequestOperations)
 from app.utils.logger import logger
-from app.schemas.users_schema import UserCreate, UserInDB, UserUpdate, InviteCreate, InviteResponse
+from app.schemas.users_schema import AdminCreateUser, UserCreate, UserInDB, UserUpdate, InviteCreate, InviteResponse, ActivateInviteResponse
 from app.schemas.log_schema import LogResponse
 from app.schemas.result_schema import ResultResponse
 from app.security.jwt import require_admin
@@ -70,6 +70,7 @@ class AdminRoutes:
         self.router.add_api_route("/invites", self.create_invite, methods=["POST"])
         self.router.add_api_route("/invites/{email}", self.delete_invite, methods=["DELETE"])
         self.router.add_api_route("/invites/{email}/status", self.change_invite_status, methods=["PATCH"])
+        self.router.add_api_route("/invites/{email}/activate", self.activate_invite, methods=["POST"])
         self.router.add_api_route("/invites/bulk-delete", self.bulk_delete_invites, methods=["POST"])
 
     async def get_dashboard_stats(self, admin=Depends(require_admin)) -> Dict[str, Any]:
@@ -136,7 +137,7 @@ class AdminRoutes:
         ops = AdminUsersOperations()
         return ops.get_user_by_id(user_id)
 
-    async def create_user(self, user_data: UserCreate, admin=Depends(require_admin)):
+    async def create_user(self, user_data: AdminCreateUser, admin=Depends(require_admin)):
         from app.security.jwt import create_password_hash
         ops = AdminUsersOperations()
         user_data.password = create_password_hash(user_data.password)
@@ -222,7 +223,7 @@ class AdminRoutes:
         db_invite = invite_ops.get_invite_request_by_email(email)
         if not db_invite:
             raise HTTPException(status_code=404, detail="Invite request not found")
-        if db_invite.status != "PENDING":
+        if db_invite.status != "pending":
             raise HTTPException(status_code=400, detail="Invite request is not pending")
 
         # Generate token
@@ -234,13 +235,13 @@ class AdminRoutes:
         invite_key = f"invite:{token}"
         await redis_client.set(invite_key, email, ex=1 * 24 * 60 * 60)
 
-         # Update invite status to completed
+        # Update invite status to completed
         invite_ops.change_invite_status(email, "COMPLETED")
 
-         # Send invite email with token
+        # Send invite email with token
         protocol = "https://" if settings.ENVIRONMENT == "production" else "http://"
         domain = settings.DOMAIN if settings.DOMAIN else "localhost:8000"
-        invite_link = f"{protocol}{domain}/?invite_token={token}"
+        invite_link = f"{protocol}{domain}/api/v1/users/invite-page?token={token}"
         await send_invite_email(to_email=email, name=email.split('@')[0], invite_link=invite_link)
 
         logger.info(f"invite_key created: {invite_key}")
@@ -266,3 +267,7 @@ class AdminRoutes:
     async def bulk_delete_invites(self, request: BulkDeleteRequest, admin=Depends(require_admin)):
         ops = AdminInviteRequestOperations()
         return ops.bulk_delete_invite_requests(request.ids)
+
+    async def activate_invite(self, email: str, admin=Depends(require_admin)):
+        ops = AdminInviteRequestOperations()
+        return ops.activate_invite_request(email)

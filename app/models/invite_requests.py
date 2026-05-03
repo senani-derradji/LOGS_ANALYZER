@@ -10,5 +10,5 @@ class InviteRequest(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
-    status = Column(String, default="PENDING")
+    status = Column(String, default="pending")
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -146,10 +146,12 @@ class UserOperations:
 
 
     def login_user(self, form_data):
-        db_user = self.get_user_by_name(form_data.username)
+        db_user = self.get_user_by_email(form_data.username)
         logger.debug(f"User lookup: {db_user}")
         if db_user is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            db_user = self.get_user_by_name(form_data.username)
+            if db_user is None:
+                raise HTTPException(status_code=404, detail="User not found")
 
         password_hash = db_user.password_hash
         logger.debug(f"Password hash retrieved for user")
@@ -237,7 +239,7 @@ class UserOperations:
         db_user = self.get_user_by_email(user_email)
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         # Build user data dict including the role field
         user_data = {
             "tenant_id": db_user.tenant_id,
@@ -251,7 +253,7 @@ class UserOperations:
             "telegram_chat_id": db_user.telegram_chat_id,
             "role": getattr(db_user, 'role', 'user')
         }
-        
+
         return {
             "UserData": UserInDB(**user_data),
             "Usage": self.check_quota(db_user)

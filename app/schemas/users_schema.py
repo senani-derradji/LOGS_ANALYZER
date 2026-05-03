@@ -3,6 +3,12 @@ from datetime import datetime
 from fastapi import HTTPException
 
 
+class AdminCreateUser(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+    role: str = "user"
+
 class UserCreate(BaseModel):
     name: str
     email: EmailStr
@@ -54,6 +60,14 @@ class InviteCreate(BaseModel):
 class InviteResponse(BaseModel):
     token: str
     expires_at: datetime
+
+
+class ActivateInviteResponse(BaseModel):
+    message: str
+    email: str
+    password: str
+    user_id: int
+    status: str
 
 
 class ForgotPasswordRequest(BaseModel):

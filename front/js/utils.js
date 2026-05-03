@@ -68,12 +68,14 @@ const Utils = {
     },
 
     getInviteStatusBadge(status) {
+        const statusUpper = status ? status.toUpperCase() : '';
         const badges = {
             'PENDING': '<span class="badge bg-warning">Pending</span>',
             'COMPLETED': '<span class="badge bg-success">Completed</span>',
-            'REJECTED': '<span class="badge bg-danger">Rejected</span>'
+            'REJECTED': '<span class="badge bg-danger">Rejected</span>',
+            'ACTIVATED': '<span class="badge bg-primary">Activated</span>'
         };
-        return badges[status] || `<span class="badge bg-secondary">${status}</span>`;
+        return badges[statusUpper] || `<span class="badge bg-secondary">${Utils.escapeHtml(status)}</span>`;
     },
 
     getRoleBadge(role) {
