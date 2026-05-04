@@ -11,9 +11,9 @@ import uuid
 
 
 TIER_QUOTAS = {
-    "free": 10,
-    "pro": 1000,
-    "enterprise": 100000,
+    "free": 1,
+    "pro": 100,
+    "enterprise": 1000,
 }
 
 

@@ -31,7 +31,7 @@ const Api = {
             if (!response.ok) {
                 const error = new Error(data.detail || 'Request failed');
                 error.status = response.status;
-                
+
                 // If unauthorized, clear auth and stop auto-refresh
                 if (response.status === 401) {
                     Utils.removeToken();
@@ -43,7 +43,7 @@ const Api = {
                     }
                     Utils.showToast('Session expired. Please login again.', 'warning');
                 }
-                
+
                 throw error;
             }
 

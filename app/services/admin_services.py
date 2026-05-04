@@ -374,8 +374,8 @@ class AdminInviteRequestOperations(InviteOperations):
             email_verified=True,
             created_at=datetime.utcnow(),
             tenant_id=uid,
-            subscription_tier="free",
-            monthly_quota=10,
+            subscription_tier="pro",
+            monthly_quota=100,
         )
         try:
             self.db.add(new_user)

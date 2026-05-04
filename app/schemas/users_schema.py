@@ -19,8 +19,8 @@ class UserCreate(BaseModel):
     @field_validator("subscription_tier")
     @classmethod
     def validate_email(cls, v):
-        if v not in ["free", "premium"]:
-            raise HTTPException(status_code=400, detail="subscription_tier must be free or premium")
+        if v not in ["free", "pro", "enterprise"]:
+            raise HTTPException(status_code=400, detail="subscription_tier must be free, pro, or enterprise")
         return v
 
     @field_validator("name")

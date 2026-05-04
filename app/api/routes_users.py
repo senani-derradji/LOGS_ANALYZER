@@ -206,15 +206,14 @@ class UserRoutes:
         # Extract name from email for personalization
         name = invite_data.email.split('@')[0].title()
 
+        logger.info(f"invite_key created: {invite_key}")
+        logger.info(f"invite_page_link: {invite_link}")
         # Send invite email
         await send_invite_email(
             to_email=invite_data.email,
             name=name,
             invite_link=invite_link
         )
-
-        logger.info(f"invite_key created: {invite_key}")
-        logger.info(f"invite_page_link: {invite_link}")
 
         return InviteResponse(token=token, expires_at=expires_at)
 
@@ -327,6 +326,7 @@ class UserRoutes:
         redis_client = get_redis()
         invite_key = f"invite:{token}"
         stored_email = await redis_client.get(invite_key)
+        logger.info(f"INVITE :::: {invite_key}")
 
         if not stored_email:
             return HTMLResponse("""

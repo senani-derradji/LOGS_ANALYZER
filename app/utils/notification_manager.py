@@ -289,6 +289,9 @@ async def send_invite_email(to_email: str, name: str, invite_link: str):
     url = settings.EMAILURL
 
     html_content = build_invite_email(name, invite_link)
+    print("invite_link: ", invite_link)
+    print("name: ", name)
+    print("to_email: ", to_email)
 
     data = {
         "from": {

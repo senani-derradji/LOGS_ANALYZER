@@ -9,19 +9,19 @@ STRIPE_PRICES = {
 
 TIER_FEATURES = {
     "free": {
-        "monthly_logs": 100,
+        "monthly_logs": 1,
         "storage_mb": 100,
         "api_keys": 1,
         "webhooks": 1,
     },
     "pro": {
-        "monthly_logs": 1000,
+        "monthly_logs": 100,
         "storage_mb": 1024,
         "api_keys": 5,
         "webhooks": 3,
     },
     "enterprise": {
-        "monthly_logs": 999999999,
+        "monthly_logs": 1000,
         "storage_mb": 10240,
         "api_keys": -1,
         "webhooks": -1,

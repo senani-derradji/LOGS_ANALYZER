@@ -25,7 +25,7 @@ const App = {
       const params = new URLSearchParams(window.location.search);
       const inviteToken = params.get('invite_token');
       const verifyToken = params.get('verify_token');
-      
+
       if (inviteToken) {
           const tokenInput = document.getElementById('regInviteToken');
           if (tokenInput) {
@@ -33,7 +33,7 @@ const App = {
               document.getElementById('register-tab').click();
           }
       }
-      
+
       if (verifyToken) {
           const tokenInput = document.getElementById('verifyToken');
           if (tokenInput) {
@@ -65,17 +65,17 @@ const App = {
          const loginModalForm = document.getElementById('loginModalForm');
          console.log('loginModalForm element:', loginModalForm);
          loginModalForm?.addEventListener('submit', (e) => this.handleLogin(e));
-         
+
          // Registration
          const registerForm = document.getElementById('registerForm');
          console.log('registerForm element:', registerForm);
          registerForm?.addEventListener('submit', (e) => this.handleRegister(e));
-         
+
          // Forgot Password
          const forgotPasswordForm = document.getElementById('forgotPasswordForm');
          console.log('forgotPasswordForm element:', forgotPasswordForm);
          forgotPasswordForm?.addEventListener('submit', (e) => this.handleForgotPassword(e));
-         
+
          // Request Invite
          const requestInviteForm = document.getElementById('requestInviteForm');
          console.log('requestInviteForm element:', requestInviteForm);
@@ -85,18 +85,18 @@ const App = {
          const verifyEmailForm = document.getElementById('verifyEmailForm');
          console.log('verifyEmailForm element:', verifyEmailForm);
          verifyEmailForm?.addEventListener('submit', (e) => this.handleVerifyEmail(e));
-         
+
          // Upload
          document.getElementById('uploadForm')?.addEventListener('submit', (e) => this.handleUpload(e));
          document.getElementById('refreshLogsBtn')?.addEventListener('click', () => this.loadLogs());
-         
+
          // Profile
          document.getElementById('viewProfileBtn')?.addEventListener('click', () => this.showProfile());
-         
+
          // API Keys
          document.getElementById('createApiKeyBtn')?.addEventListener('click', () => this.openCreateApiKeyModal());
          document.getElementById('createApiKeyForm')?.addEventListener('submit', (e) => this.handleCreateApiKey(e));
-        
+
         // Drop zone
         const dropZone = document.getElementById('dropZone');
         if (dropZone) {
@@ -117,23 +117,23 @@ const App = {
                 }
             });
         }
-        
+
          // Admin events
          document.getElementById('refreshAdminLogsBtn')?.addEventListener('click', () => this.loadAdminLogs());
          document.getElementById('refreshUsersBtn')?.addEventListener('click', () => this.loadAdminUsers());
          document.getElementById('refreshInvitesBtn')?.addEventListener('click', () => this.loadInvites());
          document.getElementById('refreshResultsBtn')?.addEventListener('click', () => this.loadResults());
          document.getElementById('bulkDeleteLogsBtn')?.addEventListener('click', () => this.bulkDeleteLogs());
-        
+
         // API Keys
         document.getElementById('refreshApiKeysBtn')?.addEventListener('click', () => this.loadApiKeys());
-        
+
         // Create user
         document.getElementById('createUserForm')?.addEventListener('submit', (e) => this.handleCreateUser(e));
-        
+
         // Admin upload
         document.getElementById('uploadFormAdmin')?.addEventListener('submit', (e) => this.handleUploadAdmin(e));
-        
+
         const dropZoneAdmin = document.getElementById('dropZoneAdmin');
         if (dropZoneAdmin) {
             dropZoneAdmin.addEventListener('dragover', (e) => {
@@ -153,7 +153,7 @@ const App = {
                 }
             });
         }
-        
+
         // Select all logs checkbox
         document.getElementById('selectAllLogs')?.addEventListener('change', (e) => {
             const checkboxes = document.querySelectorAll('.log-checkbox');
@@ -191,7 +191,7 @@ const App = {
     async loadUserProfile() {
         try {
             console.log('Fetching profile...');
-            
+
             let userData;
             // Try profile endpoint
             try {
@@ -208,7 +208,7 @@ const App = {
                 // If /users/profile fails, try to decode from token
                 const token = Utils.getToken();
                 if (!token) throw e;
-                
+
                 const payload = JSON.parse(atob(token.split('.')[1]));
                 userData = {
                     sub: payload.sub || payload.username || payload.email,
@@ -218,7 +218,7 @@ const App = {
                 };
             }
             this.currentUser = userData;
-            
+
             // Ensure role is properly extracted
             let role = userData?.role;
             console.log('Initial role from userData:', role);
@@ -235,12 +235,12 @@ const App = {
             }
             console.log('Final role decision:', role);
             console.log('User data full:', JSON.stringify(userData));
-            
+
             console.log('User data:', this.currentUser);
             console.log('Detected role:', role);
-            
+
             Utils.storeUser(this.currentUser);
-            
+
             if (role === 'admin') {
                 console.log('Showing admin section');
               this.showAdminSection();
@@ -248,7 +248,7 @@ const App = {
               console.log('Showing dashboard section');
               this.showDashboardSection();
           }
-          
+
           this.updateAuthNav();
       } catch (error) {
           console.error('Profile error:', error);
@@ -307,19 +307,19 @@ const App = {
         try {
             Utils.showLoader();
             console.log('Logging in with username:', username);
-            
+
             const data = await Api.login(username, password);
             console.log('Login response:', data);
-            
+
             Utils.storeToken(data.access_token);
             console.log('Token stored:', data.access_token ? 'yes' : 'no');
-            
+
             await this.loadUserProfile();
-            
+
             console.log('Login flow completed. Current user role:', this.currentUser?.role);
-            
+
             Utils.showToast('Login successful!', 'success');
-            
+
             const modalEl = document.getElementById('loginModal');
             if (modalEl) {
                 const modal = bootstrap.Modal.getInstance(modalEl);
@@ -355,7 +355,7 @@ const App = {
 
          try {
              Utils.showLoader();
-             
+
              const payload = {
                  name,
                  email,
@@ -373,22 +373,22 @@ const App = {
                       // Use name for login (backend expects username)
                       const loginResult = await Api.login(name, password);
                       Utils.storeToken(loginResult.access_token);
-                      
+
                       // Fetch full profile
                       const profileData = await Api.getProfile();
                       const userObj = profileData.user || profileData;
                       const userInfo = userObj.UserData || userObj;
-                      
+
                       this.currentUser = {
                           sub: userInfo.email,
                           email: userInfo.email,
                           name: userInfo.name,
                           role: userInfo.role || 'user'
                       };
-                      
+
                       Utils.storeUser(this.currentUser);
                       this.updateAuthNav();
-                      
+
                       // Show welcome and redirect to dashboard
                       Swal.fire({
                           title: 'Welcome aboard! 🎉',
@@ -453,14 +453,14 @@ const App = {
          try {
              Utils.showLoader();
              const result = await Api.requestInvite(email);
-             
+
              Swal.fire({
                  title: 'Request Submitted!',
                  html: `Your invite request for <strong>${Utils.escapeHtml(email)}</strong> has been sent to the admin for approval.<br><br>You'll receive an email with your invite link once approved.`,
                  icon: 'success',
                  confirmButtonText: 'OK'
              });
-             
+
              bootstrap.Modal.getInstance(document.getElementById('requestInviteModal'))?.hide();
              document.getElementById('requestInviteForm').reset();
          } catch (error) {
@@ -487,14 +487,14 @@ const App = {
          try {
              Utils.showLoader();
              const result = await Api.verifyEmail(token);
-             
+
              Swal.fire({
                  title: 'Email Verified! 🎉',
                  html: 'Your email has been successfully verified.<br>You can now log in.',
                  icon: 'success',
                  confirmButtonText: 'OK'
              });
-             
+
              bootstrap.Modal.getInstance(document.getElementById('verifyEmailModal'))?.hide();
              document.getElementById('verifyEmailForm').reset();
          } catch (error) {
@@ -527,7 +527,7 @@ const App = {
             const isAdmin = this.currentUser.role === 'admin';
             const userName = this.currentUser.sub || this.currentUser.name || 'User';
             const userEmail = this.currentUser.email || this.currentUser.sub || '';
-            
+
             nav.innerHTML = `
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
@@ -543,7 +543,7 @@ const App = {
                     </ul>
                 </li>
             `;
-            
+
             document.getElementById('profileBtn')?.addEventListener('click', (e) => {
                 e.preventDefault();
                 App.showProfile();
@@ -565,7 +565,7 @@ const App = {
         const loginSection = document.getElementById('loginSection');
         const dashboardSection = document.getElementById('dashboardSection');
         const adminSection = document.getElementById('adminSection');
-        
+
         if (loginSection) loginSection.style.display = '';
         if (dashboardSection) dashboardSection.style.display = 'none';
         if (adminSection) adminSection.style.display = 'none';
@@ -646,208 +646,146 @@ const App = {
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
     },
+async handleCreateApiKey(e) {
+    e.preventDefault();
+    const name = document.getElementById('apiKeyName').value;
 
-    async handleCreateApiKey(e) {
-        e.preventDefault();
-        const name = document.getElementById('apiKeyName').value;
+    if (!name || !name.trim()) {
+        Utils.showToast('Please enter a name for the API key', 'error');
+        return;
+    }
 
-        if (!name || !name.trim()) {
-            Utils.showToast('Please enter a name for the API key', 'error');
-            return;
+    try {
+        Utils.showLoader();
+
+        // Call the API
+        const response = await Api.createApiKey({ name: name.trim() });
+        console.log('API Key creation response:', response);
+
+        // Validate response
+        if (!response || !response.api_key) {
+            throw new Error('Invalid response from server');
         }
 
-        try {
-            Utils.showLoader();
-            const response = await Api.createApiKey({ name: name.trim() });
+        // Hide the create modal
+        const createModal = bootstrap.Modal.getInstance(document.getElementById('createApiKeyModal'));
+        if (createModal) {
+            createModal.hide();
+        }
 
-            // Show the key in the display modal
-            document.getElementById('createdKeyName').textContent = name.trim();
-            document.getElementById('createdApiKey').value = response.api_key;
-            document.getElementById('createdKeyId').textContent = response.key_id;
+        // Clear the form
+        document.getElementById('apiKeyName').value = '';
 
-            // Populate code examples
-            this.populateCodeExamples(response.api_key);
+        // Populate the display modal
+        document.getElementById('createdKeyName').textContent = name.trim();
+        document.getElementById('createdApiKey').value = response.api_key;
+        document.getElementById('createdKeyId').textContent = response.key_id || 'N/A';
 
-            // Hide create modal and show display modal
-            bootstrap.Modal.getInstance(document.getElementById('createApiKeyModal')).hide();
-            const displayModalEl = document.getElementById('apiKeyDisplayModal');
+        // Generate code examples
+        this.populateCodeExamples(response.api_key);
+
+        // Show the display modal
+        const displayModalEl = document.getElementById('apiKeyDisplayModal');
+        if (displayModalEl) {
             const displayModal = new bootstrap.Modal(displayModalEl);
             displayModal.show();
-
-            // Refresh the API keys list
-            await Promise.all([
-                this.loadApiKeys(),
-                this.loadProfileApiKeys()
-            ]);
-
-            Utils.showToast('API key created successfully', 'success');
-        } catch (error) {
-            Utils.showToast(error.message || 'Failed to create API key', 'error');
-        } finally {
-            Utils.hideLoader();
+        } else {
+            // Fallback: Show Swal if modal doesn't exist
+            await Swal.fire({
+                title: 'API Key Created',
+                html: `
+                    <div class="alert alert-warning">
+                        <strong>Important:</strong> Copy your API key now. You won't be able to see it again!
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">API Key:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="swal-api-key" value="${response.api_key}" readonly>
+                            <button class="btn btn-outline-secondary" onclick="document.getElementById('swal-api-key').select(); document.execCommand('copy'); Swal.fire({title:'Copied!', text:'API key copied to clipboard', icon:'success', timer:1500})">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonText: 'Close'
+            });
         }
-    },
 
-    populateCodeExamples(apiKey) {
-        const BASE_URL = API_BASE_URL;
+        // Refresh the API keys lists
+        await Promise.all([
+            this.loadApiKeys(),
+            this.loadProfileApiKeys()
+        ]);
 
-        // Python
-        const pythonCode = `import requests
-import sys
-import os
+        Utils.showToast('API key created successfully!', 'success');
 
-def upload_log_file(file_path: str, api_key: str, base_url: str = "${BASE_URL}") -> dict:
-    """
-    Upload a log file to the Logs Analyzer API.
+    } catch (error) {
+        console.error('Error creating API key:', error);
+        Utils.showToast(error.message || 'Failed to create API key', 'error');
+    } finally {
+        Utils.hideLoader();
+    }
+},
+populateCodeExamples(apiKey) {
+    const BASE_URL = API_BASE_URL;
 
-    Args:
-        file_path: Path to the log file (.log, .txt, .csv)
-        api_key: Your API key (keep secret!)
-        base_url: API base URL (default: "${BASE_URL}")
+    // Get all code elements
+    const pythonCodeElem = document.getElementById('pythonCode');
+    const jsCodeElem = document.getElementById('jsCode');
+    const goCodeElem = document.getElementById('goCode');
+    const curlCodeElem = document.getElementById('curlCode');
 
-    Returns:
-        dict: API response with log details
+    // Python
+    if (pythonCodeElem) {
+        pythonCodeElem.textContent = `import requests
 
-    Raises:
-        FileNotFoundError: If the log file doesn't exist
-        requests.RequestException: If the API request fails
-    """
-    # Validate file exists
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"Log file not found: {file_path}")
+# Your API key - keep this secret!
+API_KEY = "${apiKey}"
+API_URL = "${BASE_URL}/logs/upload"
 
-    # Prepare endpoint and headers
-    url = f"{base_url}/logs/upload"
-    headers = {
-        "Authorization": f"Bearer {api_key}"
+def upload_log_file(file_path):
+    with open(file_path, 'rb') as f:
+        files = {'file': f}
+        headers = {'Authorization': f'Bearer {API_KEY}'}
+        response = requests.post(API_URL, headers=headers, files=files)
+        return response.json()
+
+# Usage
+result = upload_log_file('your_log_file.log')
+print(result)`;
     }
 
-    try:
-        # Upload file with timeout (30 seconds)
-        with open(file_path, "rb") as f:
-            files = {"file": f}
-            response = requests.post(
-                url,
-                headers=headers,
-                files=files,
-                timeout=30  # seconds
-            )
-
-        # Raise an exception for bad status codes
-        response.raise_for_status()
-
-        # Parse and return JSON response
-        result = response.json()
-        print(f"✅ Upload successful! Log ID: {result.get('id')}")
-        return result
-
-    except requests.exceptions.Timeout:
-        print("❌ Request timed out after 30 seconds", file=sys.stderr)
-        raise
-    except requests.exceptions.HTTPError as e:
-        print(f"❌ HTTP error {response.status_code}: {response.text}", file=sys.stderr)
-        raise
-    except requests.exceptions.RequestException as e:
-        print(f"❌ Network error: {str(e)}", file=sys.stderr)
-        raise
-    except ValueError as e:
-        print(f"❌ Invalid JSON response: {str(e)}", file=sys.stderr)
-        raise
-
-
-# Example usage
-if __name__ == "__main__":
-    API_KEY = "${apiKey}"  # Replace with your actual API key
-    LOG_FILE = "application.log"  # Path to your log file
-
-    try:
-        result = upload_log_file(LOG_FILE, API_KEY)
-        print(f"Log uploaded successfully. ID: {result.get('id')}")
-    except Exception as e:
-        print(f"Upload failed: {e}", file=sys.stderr)
-        sys.exit(1)`;
-        document.getElementById('pythonCode').textContent = pythonCode;
-
-        // JavaScript (Node.js with fetch)
-        const jsCode = `const fs = require('fs');
-const path = require('path');
-const { pipeline } = require('stream');
-const { promisify } = require('util');
-
-const API_BASE_URL = "${BASE_URL}";
+    // JavaScript
+    if (jsCodeElem) {
+        jsCodeElem.textContent = `// Your API key - keep this secret!
 const API_KEY = "${apiKey}";
+const API_URL = "${BASE_URL}/logs/upload";
 
-/**
- * Upload a log file to the Logs Analyzer API
- * @param {string} filePath - Path to the log file
- * @returns {Promise<object>} API response
- */
-async function uploadLogFile(filePath) {
-    // Validate file exists
-    const stats = fs.statSync(filePath);
-    if (!stats.isFile()) {
-        throw new Error(\`Invalid file path: \${filePath}\`);
-    }
-
-    const url = \`\${API_BASE_URL}/logs/upload\`;
-
-    // Create FormData
+async function uploadLogFile(file) {
     const formData = new FormData();
-    formData.append('file', fs.createReadStream(filePath));
+    formData.append('file', file);
 
-    const options = {
+    const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
             'Authorization': \`Bearer \${API_KEY}\`
-            // Note: Do NOT set Content-Type when using FormData;
-            // the browser will set it with the correct boundary
         },
-        body: formData,
-        timeout: 30000  // 30 seconds
-    };
+        body: formData
+    });
 
-    try {
-        const response = await fetch(url, options);
-
-        // Handle HTTP errors
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(
-                \`Upload failed (\${response.status}): \${errorData.detail || response.statusText}\`
-            );
-        }
-
-        const result = await response.json();
-        console.log('✅ Upload successful:', result);
-        return result;
-
-    } catch (error) {
-        if (error.name === 'TimeoutError') {
-            console.error('❌ Request timed out');
-        } else if (error.message.includes('ECONNREFUSED')) {
-            console.error('❌ Connection refused - is the server running?');
-        } else {
-            console.error('❌ Upload failed:', error.message);
-        }
-        throw error;
-    }
+    return await response.json();
 }
 
-// Example usage
-(async () => {
-    try {
-        const logFile = 'application.log';  // Your log file path
-        const result = await uploadLogFile(logFile);
-        console.log(\`Log ID: \${result.id}\`);
-    } catch (error) {
-        console.error('Fatal error:', error.message);
-        process.exit(1);
+// Usage with file input
+const fileInput = document.querySelector('input[type="file"]');
+const result = await uploadLogFile(fileInput.files[0]);
+console.log(result);`;
     }
-})();`;
-        document.getElementById('jsCode').textContent = jsCode;
 
-        // Go
-        const goCode = `package main
+    // Go
+    if (goCodeElem) {
+        goCodeElem.textContent = `package main
 
 import (
     "bytes"
@@ -856,197 +794,71 @@ import (
     "mime/multipart"
     "net/http"
     "os"
-    "time"
 )
 
-/**
- * Upload a log file to the Logs Analyzer API
- *
- * Example usage:
- *   go run upload.go --file=application.log --key=your_api_key
- */
-func main() {
-    // Configuration
-    baseURL := "${BASE_URL}"
-    apiKey := "${apiKey}"
-    filePath := "your_file.log"  // Replace with your file path
-
-    // Validate file exists
-    if _, err := os.Stat(filePath); os.IsNotExist(err) {
-        fmt.Fprintf(os.Stderr, "❌ File not found: %s\\n", filePath)
-        os.Exit(1)
-    }
-
-    // Prepare request
-    url := fmt.Sprintf("%s/logs/upload", baseURL)
-
-    // Open file
+func uploadLogFile(filePath string, apiKey string) error {
     file, err := os.Open(filePath)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "❌ Failed to open file: %v\\n", err)
-        os.Exit(1)
+        return err
     }
     defer file.Close()
 
-    // Create multipart body
-    var body bytes.Buffer
-    writer := multipart.NewWriter(&body)
+    body := &bytes.Buffer{}
+    writer := multipart.NewWriter(body)
     part, err := writer.CreateFormFile("file", filePath)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "❌ Failed to create form file: %v\\n", err)
-        os.Exit(1)
+        return err
     }
-
-    // Copy file content to form
-    if _, err = io.Copy(part, file); err != nil {
-        fmt.Fprintf(os.Stderr, "❌ Failed to copy file content: %v\\n", err)
-        os.Exit(1)
-    }
-
-    // Close writer to finalize multipart body
+    io.Copy(part, file)
     writer.Close()
 
-    // Create HTTP request
-    req, err := http.NewRequest("POST", url, &body)
+    req, err := http.NewRequest("POST", "${BASE_URL}/logs/upload", body)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "❌ Failed to create request: %v\\n", err)
-        os.Exit(1)
+        return err
     }
-
-    // Set headers
     req.Header.Set("Authorization", "Bearer "+apiKey)
     req.Header.Set("Content-Type", writer.FormDataContentType())
 
-    // Configure HTTP client with timeout
-    client := &http.Client{
-        Timeout: 30 * time.Second,
-    }
-
-    // Execute request
+    client := &http.Client{}
     resp, err := client.Do(req)
     if err != nil {
-        fmt.Fprintf(os.Stderr, "❌ Request failed: %v\\n", err)
-        os.Exit(1)
+        return err
     }
     defer resp.Body.Close()
 
-    // Read response body
-    buf := new(bytes.Buffer)
-    buf.ReadFrom(resp.Body)
-
-    // Check status code
-    if resp.StatusCode >= 400 {
-        fmt.Fprintf(os.Stderr, "❌ Upload failed (status %d): %s\\n",
-            resp.StatusCode, buf.String())
-        os.Exit(1)
-    }
-
-    // Success
-    fmt.Printf("✅ Upload successful! Response: %s\\n", buf.String())
-}`;
-        document.getElementById('goCode').textContent = goCode;
-
-        // cURL
-        const curlCode = `#!/bin/bash
-# Upload a log file using cURL with error handling
-
-API_BASE_URL="${BASE_URL}"
-API_KEY="${apiKey}"
-LOG_FILE="your_file.log"
-
-# Color codes for output
-RED='\\033[0;31m'
-GREEN='\\033[0;32m'
-YELLOW='\\033[1;33m'
-NC='\\033[0m' # No Color
-
-# Check if file exists
-if [[ ! -f "$LOG_FILE" ]]; then
-    echo -e "${RED}❌ Error: File not found: $LOG_FILE${NC}"
-    exit 1
-fi
-
-# Check file size
-FILE_SIZE=$(wc -c < "$LOG_FILE")
-echo -e "${YELLOW}📤 Uploading $LOG_FILE (${FILE_SIZE} bytes)...${NC}"
-
-# Perform upload with verbose output and error handling
-response=$(curl -s -w "\\n%{http_code}" -X POST "${API_BASE_URL}/logs/upload" \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -F "file=@${LOG_FILE}" \\
-  --connect-timeout 10 \\
-  --max-time 60 2>&1) || {
-    echo -e "${RED}❌ cURL command failed${NC}"
-    exit 1
+    fmt.Println("Status:", resp.Status)
+    return nil
 }
 
-# Separate body and status code
-http_code=$(echo "$response" | tail -n1)
-body=$(echo "$response" | sed '$d')
+func main() {
+    apiKey := "${apiKey}"
+    err := uploadLogFile("your_log_file.log", apiKey)
+    if err != nil {
+        fmt.Println("Error:", err)
+    }
+}`;
+    }
 
-# Handle response based on status code
-case $http_code in
-    200|201)
-        echo -e "${GREEN}✅ Upload successful!${NC}"
-        echo "Response: $body"
-        # Extract log ID if available (requires jq)
-        if command -v jq &> /dev/null; then
-            log_id=$(echo "$body" | jq -r '.id // empty')
-            if [[ -n "$log_id" ]]; then
-                echo "Log ID: $log_id"
-            fi
-        fi
-        ;;
-    400)
-        echo -e "${RED}❌ Bad Request: Invalid file or parameters${NC}"
-        echo "Details: $body"
-        exit 1
-        ;;
-    401)
-        echo -e "${RED}❌ Unauthorized: Invalid API key${NC}"
-        exit 1
-        ;;
-    403)
-        echo -e "${RED}❌ Forbidden: Insufficient permissions${NC}"
-        exit 1
-        ;;
-    429)
-        echo -e "${YELLOW}⚠️  Rate limit exceeded. Please try again later.${NC}"
-        exit 1
-        ;;
-    500)
-        echo -e "${RED}❌ Server error (500). Please try again or contact support.${NC}"
-        exit 1
-        ;;
-    *)
-        echo -e "${RED}❌ Unexpected HTTP status: $http_code${NC}"
-        echo "Response: $body"
-        exit 1
-        ;;
-esac
+    // cURL
+    if (curlCodeElem) {
+        curlCodeElem.textContent = `#!/bin/bash
 
-# Optional: Verify upload by fetching the log (requires jq)
-if command -v jq &> /dev/null && [[ -n "$log_id" ]]; then
-    echo -e "${YELLOW}🔍 Verifying upload...${NC}"
-    verify_response=$(curl -s -w "\\n%{http_code}" \\
-      -H "Authorization: Bearer ${apiKey}" \\
-      "${API_BASE_URL}/logs/${log_id}" 2>&1)
+API_KEY="${apiKey}"
+API_URL="${BASE_URL}/logs/upload"
+FILE="your_log_file.log"
 
-    verify_code=$(echo "$verify_response" | tail -n1)
-    if [[ $verify_code == "200" ]]; then
-        echo -e "${GREEN}✅ Log verified Successfully${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Verification returned status: $verify_code${NC}"
-    fi
-fi`;
-        document.getElementById('curlCode').textContent = curlCode;
-    },
+curl -X POST "$API_URL" \\
+  -H "Authorization: Bearer $API_KEY" \\
+  -F "file=@$FILE"`;
+    }
+},
+
 
     async revokeApiKey(keyId) {
         const confirmed = await Utils.confirmSwal('Revoke API Key', 'Are you sure you want to revoke this API key? It will no longer work for uploads.');
-        
+
         if (!confirmed.isConfirmed) return;
-        
+
         try {
             await Api.revokeApiKey(keyId);
             Utils.showToast('API key revoked successfully', 'success');
@@ -1256,25 +1068,25 @@ fi`;
             Utils.showToast('Failed to copy to clipboard', 'error');
         });
     },
+copyCodeToClipboard(elementId) {
+    const codeEl = document.getElementById(elementId);
+    if (!codeEl) return;
 
-    copyCodeToClipboard(elementId) {
-        const codeEl = document.getElementById(elementId);
-        if (!codeEl) return;
-        const text = codeEl.textContent;
-        navigator.clipboard.writeText(text).then(() => {
-            Utils.showToast('Code copied to clipboard', 'success');
-        }).catch(err => {
-            console.error('Failed to copy code:', err);
-            Utils.showToast('Failed to copy code', 'error');
-        });
-    },
+    const text = codeEl.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        Utils.showToast('Code copied to clipboard!', 'success');
+    }).catch(err => {
+        console.error('Failed to copy code:', err);
+        Utils.showToast('Failed to copy code', 'error');
+    });
+},
 
     async showProfile() {
         try {
             Utils.showLoader();
             const response = await Api.getProfile();
             console.log('Profile API response:', response);
-            
+
             // Response structure: { message: "...", user: { UserData: {...}, Usage: {...} } }
             const userObj = response.user || response;
             const userData = userObj.UserData || userObj;
@@ -1283,9 +1095,9 @@ fi`;
             // Populate profile fields
             document.getElementById('profileName').textContent = userData.name || '-';
             document.getElementById('profileEmail').textContent = userData.email || '-';
-            document.getElementById('profileRole').innerHTML = userData.role ? 
+            document.getElementById('profileRole').innerHTML = userData.role ?
                 Utils.getRoleBadge(userData.role) : '<span class="badge bg-secondary">user</span>';
-            document.getElementById('profileIsActive').innerHTML = userData.is_active ? 
+            document.getElementById('profileIsActive').innerHTML = userData.is_active ?
                 '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>';
             document.getElementById('profileEmailVerified').innerHTML = userData.email_verified ?
                 '<span class="badge bg-success">Verified</span>' : '<span class="badge bg-warning">Not Verified</span>';
@@ -1296,7 +1108,7 @@ fi`;
             const usageCurrent = usage.usage !== undefined ? usage.usage : (userData.api_usage_current_month ?? 0);
             const quota = usage.quota !== undefined ? usage.quota : (userData.monthly_quota ?? 0);
             const remaining = usage.remaining !== undefined ? usage.remaining : (quota - usageCurrent);
-            
+
             document.getElementById('profileUsageCurrent').textContent = usageCurrent;
             document.getElementById('profileQuota').textContent = quota;
             document.getElementById('profileRemaining').textContent = remaining;
@@ -1408,7 +1220,7 @@ fi`;
         e.preventDefault();
         const fileInput = document.getElementById('logFile');
         const file = fileInput.files[0];
-        
+
         console.log('Upload started, file:', file);
 
         if (!file) {
@@ -1423,24 +1235,24 @@ fi`;
 
         const progressDiv = document.getElementById('uploadProgress');
         const progressBar = progressDiv.querySelector('.progress-bar');
-        
+
         try {
             progressDiv.style.display = 'block';
             progressBar.style.width = '0%';
-            
+
             console.log('Uploading file to:', `${API_BASE_URL}/logs/upload`);
-            
+
             const result = await Api.uploadLogFile(file, (percent) => {
                 console.log('Upload progress:', percent + '%');
                 progressBar.style.width = `${percent}%`;
             });
-            
+
             console.log('Upload result:', result);
-            
+
             Utils.showToast('File uploaded successfully!', 'success');
             fileInput.value = '';
             progressDiv.style.display = 'none';
-            
+
             this.loadLogs();
         } catch (error) {
             Utils.showToast(error.message || 'Upload failed', 'error');
@@ -1465,19 +1277,19 @@ fi`;
 
         const progressDiv = document.getElementById('uploadProgressAdmin');
         const progressBar = progressDiv.querySelector('.progress-bar');
-        
+
         try {
             progressDiv.style.display = 'block';
             progressBar.style.width = '0%';
-            
+
             const result = await Api.uploadLogFile(file, (percent) => {
                 progressBar.style.width = `${percent}%`;
             });
-            
+
             Utils.showToast('File uploaded successfully!', 'success');
             fileInput.value = '';
             progressDiv.style.display = 'none';
-            
+
             this.loadAdminStats();
         } catch (error) {
             Utils.showToast(error.message || 'Upload failed', 'error');
@@ -1534,7 +1346,7 @@ fi`;
 
     updateLogStats(logs) {
         if (!logs) return;
-        
+
         const total = logs.length;
         const processed = logs.filter(l => l.status === 'completed').length;
         const pending = logs.filter(l => l.status === 'pending' || l.status === 'processing').length;
@@ -1548,9 +1360,9 @@ fi`;
 
     async deleteLog(logId) {
         const confirmed = await Utils.confirmSwal('Delete Log', 'Are you sure you want to delete this log?');
-        
+
         if (!confirmed.isConfirmed) return;
-        
+
         try {
             await Api.deleteLog(logId);
             Utils.showToast('Log deleted successfully', 'success');
@@ -1564,7 +1376,7 @@ fi`;
         try {
             const log = await Api.getLog(logId);
             const content = document.getElementById('logDetailsContent');
-            
+
             content.innerHTML = `
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -1629,7 +1441,7 @@ fi`;
                     ` : ''}
                 </div>
             `;
-            
+
             const modalEl = document.getElementById('logDetailsModal');
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
@@ -1642,12 +1454,12 @@ fi`;
         try {
             const log = await Api.getAdminLog(logId);
             const content = document.getElementById('logDetailsContent');
-            
+
             const formatJson = (data) => {
                 if (!data) return '-';
                 return `<pre class="bg-light p-2 rounded" style="max-height: 200px; overflow: auto;"><code>${Utils.escapeHtml(JSON.stringify(data, null, 2))}</code></pre>`;
             };
-            
+
             content.innerHTML = `
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -1712,7 +1524,7 @@ fi`;
                     ` : ''}
                 </div>
             `;
-            
+
             const modalEl = document.getElementById('logDetailsModal');
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
@@ -1900,7 +1712,7 @@ fi`;
 
         const labels = [];
         const values = [];
-        
+
         if (data.daily_stats) {
             data.daily_stats.forEach(stat => {
                 labels.push(stat.date);
@@ -1977,9 +1789,9 @@ fi`;
 
     async deleteAdminLog(logId) {
         const confirmed = await Utils.confirmSwal('Delete Log', 'Are you sure you want to delete this log?');
-        
+
         if (!confirmed.isConfirmed) return;
-        
+
         try {
             await Api.deleteAdminLog(logId);
             Utils.showToast('Log deleted successfully', 'success');
@@ -1992,7 +1804,7 @@ fi`;
      async loadAdminUsers() {
          try {
              const users = await Api.getAllAdminUsers();
-             
+
              const tbody = document.getElementById('usersTableBody');
              tbody.innerHTML = '';
 
@@ -2029,14 +1841,14 @@ fi`;
           try {
               Utils.showLoader();
               const user = await Api.getAdminUser(userId);
-              
+
               const formatDate = (date) => {
                   if (!date) return '-';
                   return new Date(date).toLocaleString();
               };
 
               const content = document.getElementById('userDetailsContent');
-              
+
               content.innerHTML = `
                   <div class="row">
                       <div class="col-md-6 mb-3">
@@ -2125,9 +1937,9 @@ fi`;
 
      async deleteUser(userId) {
          const confirmed = await Utils.confirmSwal('Delete User', 'Are you sure you want to delete this user?');
-         
+
          if (!confirmed.isConfirmed) return;
-         
+
          try {
              await Api.deleteUser(userId);
              Utils.showToast('User deleted successfully', 'success');
@@ -2140,7 +1952,7 @@ fi`;
      async loadInvites() {
          try {
              const invites = await Api.getInvites();
-             
+
              const tbody = document.getElementById('invitesTableBody');
              tbody.innerHTML = '';
 
@@ -2188,9 +2000,9 @@ fi`;
      async deleteInvite(email) {
          const decodedEmail = decodeURIComponent(email);
          const confirmed = await Utils.confirmSwal('Delete Invite', `Are you sure you want to delete the invite request for ${decodedEmail}?`);
-         
+
          if (!confirmed.isConfirmed) return;
-         
+
          try {
              await Api.deleteInvite(decodedEmail);
              Utils.showToast('Invite request deleted', 'success');
@@ -2221,16 +2033,16 @@ fi`;
     async bulkDeleteLogs() {
         const checkboxes = document.querySelectorAll('.log-checkbox:checked');
         const ids = Array.from(checkboxes).map(cb => parseInt(cb.value));
-        
+
         if (ids.length === 0) {
             Utils.showToast('Please select logs to delete', 'warning');
             return;
         }
-        
+
         const confirmed = await Utils.confirmSwal('Delete Logs', `Are you sure you want to delete ${ids.length} logs?`);
-        
+
         if (!confirmed.isConfirmed) return;
-        
+
         try {
             await Api.bulkDeleteLogs(ids);
             Utils.showToast('Logs deleted successfully', 'success');
@@ -2282,7 +2094,7 @@ fi`;
 
     renderResults(results) {
         const container = document.getElementById('resultsTableBody');
-        
+
         if (!results || results.length === 0) {
             container.innerHTML = '<div class="text-center text-muted p-4"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>No results found</div>';
             return;
@@ -2328,9 +2140,9 @@ fi`;
 
     async deleteResult(resultId) {
         const confirmed = await Utils.confirmSwal('Delete Result', 'Are you sure you want to delete this result?');
-        
+
         if (!confirmed.isConfirmed) return;
-        
+
         try {
             await Api.deleteResult(resultId);
             Utils.showToast('Result deleted successfully', 'success');
@@ -2344,12 +2156,12 @@ fi`;
         try {
             const result = await Api.getResult(resultId);
             const content = document.getElementById('resultDetailsContent');
-            
+
             const formatJson = (data) => {
                 if (!data) return '-';
                 return `<pre class="bg-light p-2 rounded" style="max-height: 200px; overflow: auto;"><code>${Utils.escapeHtml(JSON.stringify(data, null, 2))}</code></pre>`;
             };
-            
+
             content.innerHTML = `
                 <div class="row">
                     <div class="col-md-4 mb-3">
@@ -2430,7 +2242,7 @@ fi`;
                     </div>
                 </div>
             `;
-            
+
             const modalEl = document.getElementById('resultDetailsModal');
             const modal = new bootstrap.Modal(modalEl);
             modal.show();
