@@ -8,6 +8,7 @@ from typing import Optional, Dict
 from app.utils.logger import logger
 from app.utils.check_tier import check
 import uuid
+from app.services.subscription_service import SubscriptionService
 
 
 TIER_QUOTAS = {
@@ -44,7 +45,10 @@ class UserOperations:
 
             monthly_quota=check(user.subscription_tier),
 
-            subscription_expires_at=datetime.utcnow(),
+            subscription_expires_at=SubscriptionService.calculate_expiry_date(
+                datetime.utcnow(), 
+                user.subscription_tier
+            ),
 
             email_verified=False,
 
@@ -221,6 +225,44 @@ class UserOperations:
         db_user.role = new_role
         self.db.commit()
         self.db.refresh(db_user)
+        return db_user
+
+    def update_subscription_tier(
+        self,
+        user_id: int,
+        tier: str,
+        quota: int,
+        months: int = 1
+    ):
+        """Update a user's subscription tier and set expiry date.
+        
+        Args:
+            user_id: ID of the user to update
+            tier: New subscription tier (free, pro, enterprise)
+            quota: New monthly quota
+            months: Number of months for subscription (default 1)
+            
+        Returns:
+            Updated user object
+        """
+        db_user = self.get_user_by_id(user_id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        db_user.subscription_tier = tier
+        db_user.monthly_quota = quota
+        db_user.subscription_expires_at = SubscriptionService.calculate_expiry_date(
+            datetime.utcnow(),
+            tier
+        )
+        
+        try:
+            self.db.commit()
+            self.db.refresh(db_user)
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+        
         return db_user
 
     def delete_user(self, user_id: int):

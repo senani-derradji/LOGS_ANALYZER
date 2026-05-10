@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from datetime import datetime
+from typing import Optional
 from fastapi import HTTPException
 
 
@@ -55,6 +56,14 @@ class UserUpdate(BaseModel):
 
 class InviteCreate(BaseModel):
     email: EmailStr
+    plan_type: str = "pro"
+
+    @field_validator("plan_type")
+    @classmethod
+    def validate_plan_type(cls, v):
+        if v not in ["pro", "enterprise"]:
+            raise HTTPException(status_code=400, detail="plan_type must be 'pro' or 'enterprise'")
+        return v
 
 
 class InviteResponse(BaseModel):
@@ -101,8 +110,8 @@ class UserInDB(BaseModel):
     email: EmailStr
     is_active: bool
     api_usage_current_month: int
-    api_usage_reset_at: datetime
-    subscription_expires_at: datetime
+    api_usage_reset_at: Optional[datetime]
+    subscription_expires_at: Optional[datetime]
     email_verified: bool
     telegram_chat_id: None | str
     role: str = "user"

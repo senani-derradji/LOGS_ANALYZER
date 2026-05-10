@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse
 
 from app.services.users_services import UserOperations
 from app.services.invite_request_service import InviteOperations
+from app.services.subscription_service import SubscriptionService
 from app.utils.get_ops import get_user_ops, get_invite_ops
 from app.security.jwt import get_current_user, create_password_hash
 from app.schemas.users_schema import (
@@ -46,6 +47,7 @@ class UserRoutes:
         self.router.add_api_route("/reset-password-page", self.reset_password_page, methods=["GET"])
         self.router.add_api_route("/invite-page", self.invite_page, methods=["GET"])
         self.router.add_api_route("/demande_invite", self.demande_invite, methods=["POST"])
+        self.router.add_api_route("/upgrade", self.upgrade_subscription, methods=["POST"])
 
     async def user_login(
         self,
@@ -163,7 +165,10 @@ class UserRoutes:
 
         user.email_verified = True
         user.is_active = True
-        user.subscription_expires_at = datetime.utcnow() + timedelta(days=30)
+        user.subscription_expires_at = SubscriptionService.calculate_expiry_date(
+            datetime.utcnow(),
+            user.subscription_tier
+        )
 
         user_ops.db.commit()
 
@@ -227,8 +232,11 @@ class UserRoutes:
         email_address = invite_data.email
 
         db_user = user_ops.get_user_by_email(email_address)
-        if db_user:
-            raise HTTPException(status_code=400, detail="User already exists")
+        if not db_user:
+            raise HTTPException(status_code=400, detail="User not found")
+
+        if db_user.is_active:
+            raise HTTPException(status_code=400, detail="User")
 
         db_invite = invite_ops.get_invite_request_by_email(email_address)
         if db_invite:
@@ -541,6 +549,53 @@ class UserRoutes:
 
     async def profile(self, user = Depends(get_current_user), user_ops: UserOperations = Depends(get_user_ops),):
         return {"message": "Authenticated User", "user": user_ops.get_profile(user_email=user.get("sub"))}
+
+    async def upgrade_subscription(
+        self,
+        tier_data: dict,
+        user = Depends(get_current_user),
+        user_ops: UserOperations = Depends(get_user_ops),
+    ):
+        """Upgrade the logged-in user's subscription tier."""
+        tier = tier_data.get("tier")
+        if tier not in ("pro", "enterprise"):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid tier. Must be 'pro' or 'enterprise'"
+            )
+        
+        db_user = user_ops.get_user_by_email(user.get("sub"))
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Determine quota based on tier
+        from app.utils.check_tier import check
+        quota = check(tier)
+        
+        from datetime import datetime
+        from app.services.subscription_service import SubscriptionService
+        
+        # Update tier, quota, and calculate new expiry
+        db_user.subscription_tier = tier
+        db_user.monthly_quota = quota
+        db_user.subscription_expires_at = SubscriptionService.calculate_expiry_date(
+            datetime.utcnow(),
+            tier
+        )
+        
+        try:
+            user_ops.db.commit()
+            user_ops.db.refresh(db_user)
+        except Exception as e:
+            user_ops.db.rollback()
+            raise HTTPException(status_code=500, detail=str(e))
+        
+        return {
+            "message": "Subscription upgraded successfully",
+            "tier": tier,
+            "monthly_quota": quota,
+            "subscription_expires_at": db_user.subscription_expires_at.isoformat() if db_user.subscription_expires_at else None
+        }
 
     async def get_usage(
         self,

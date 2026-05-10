@@ -1,12 +1,12 @@
 from app.models.users import Users
 from app.models.log import Logs
 from app.models.result import Result
-from app.models.invite_requests import InviteRequest
+from app.models.invite_requests import InviteRequest, EnterpriseInviteRequest
 from app.services.logs_services import LogsOperations
 from app.services.users_services import UserOperations
 from app.services.result_services import ResultOperations
 from app.services.invite_request_service import InviteOperations
-from fastapi import HTTPException
+from app.services.subscription_service import SubscriptionService
 from app.db.session import SessionLocal
 from sqlalchemy import desc
 from datetime import datetime, timedelta
@@ -245,6 +245,10 @@ class AdminUsersOperations(UserOperations):
             tenant_id=uid,
             subscription_tier=subscription_tier,
             monthly_quota=monthly_quota,
+            subscription_expires_at=SubscriptionService.calculate_expiry_date(
+                datetime.utcnow(),
+                subscription_tier
+            ),
         )
         try:
             self.db.add(new_user)
@@ -254,6 +258,44 @@ class AdminUsersOperations(UserOperations):
         except Exception as e:
             self.db.rollback()
             raise HTTPException(status_code=500, detail=str(e))
+
+    def change_user_role(self, user_id: int, new_role: str):
+        db_user = self.db.query(Users).filter(Users.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if new_role not in ["admin", "user"]:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        db_user.role = new_role
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+
+    def update_user_subscription(self, user_id: int, subscription_data: dict):
+        db_user = self.db.query(Users).filter(Users.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if "monthly_quota" in subscription_data:
+            db_user.monthly_quota = subscription_data["monthly_quota"]
+        if "subscription_tier" in subscription_data:
+            db_user.subscription_tier = subscription_data["subscription_tier"]
+
+        # Update subscription expiry if tier or quota changes
+        if "subscription_tier" in subscription_data or "monthly_quota" in subscription_data:
+            db_user.subscription_expires_at = SubscriptionService.calculate_expiry_date(
+                datetime.utcnow(),
+                db_user.subscription_tier
+            )
+        
+        self.db.commit()
+        self.db.refresh(db_user)
+        return {
+            "id": db_user.id,
+            "email": db_user.email,
+            "subscription_tier": db_user.subscription_tier,
+            "monthly_quota": db_user.monthly_quota,
+            "message": "Subscription updated successfully"
+        }
 
 
 class AdminResultsOperations(ResultOperations):
@@ -303,13 +345,58 @@ class AdminInviteRequestOperations(InviteOperations):
         self.db = db
 
     def get_invite_requests(self, skip: int = 0, limit: int = 100):
-        return self.db.query(InviteRequest).order_by(desc(InviteRequest.created_at)).offset(skip).limit(limit).all()
+        # Join with Users table to get subscription_expires_at for API response
+        results = self.db.query(
+            InviteRequest,
+            Users.subscription_expires_at
+        ).outerjoin(
+            Users, InviteRequest.email == Users.email
+        ).order_by(
+            desc(InviteRequest.created_at)
+        ).offset(skip).limit(limit).all()
+        
+        # Combine invite data with user subscription expiry
+        invites_with_expiry = []
+        for invite, sub_expires_at in results:
+            invite_dict = {
+                "id": invite.id,
+                "email": invite.email,
+                "plan_type": invite.plan_type,
+                "status": invite.status,
+                "created_at": invite.created_at.isoformat() if invite.created_at else None,
+                "subscription_expires_at": sub_expires_at.isoformat() if sub_expires_at else None
+            }
+            invites_with_expiry.append(invite_dict)
+        
+        return invites_with_expiry
 
-    def get_invite_request_by_email(self, email: str):
+    def _get_invite_request(self, email: str):
+        """Internal method to get raw InviteRequest object for operations."""
         return self.db.query(InviteRequest).filter(InviteRequest.email == email).first()
 
+    def get_invite_request_by_email(self, email: str):
+        """Get invite request with user's subscription expiry for API response."""
+        result = self.db.query(
+            InviteRequest,
+            Users.subscription_expires_at
+        ).outerjoin(
+            Users, InviteRequest.email == Users.email
+        ).filter(InviteRequest.email == email).first()
+        
+        if result:
+            invite, sub_expires_at = result
+            return {
+                "id": invite.id,
+                "email": invite.email,
+                "plan_type": invite.plan_type,
+                "status": invite.status,
+                "created_at": invite.created_at.isoformat() if invite.created_at else None,
+                "subscription_expires_at": sub_expires_at.isoformat() if sub_expires_at else None
+            }
+        return None
+
     def delete_invite_request(self, email: str):
-        db_request = self.db.query(InviteRequest).filter(InviteRequest.email == email).first()
+        db_request = self._get_invite_request(email)
         if not db_request:
             raise HTTPException(status_code=404, detail="Invite request not found")
         self.db.delete(db_request)
@@ -317,7 +404,7 @@ class AdminInviteRequestOperations(InviteOperations):
         return {"message": "Invite request deleted"}
 
     def change_invite_status(self, email: str, new_status: str = "completed"):
-        db_invite = self.get_invite_request_by_email(email)
+        db_invite = self._get_invite_request(email)
         if not db_invite:
             raise HTTPException(status_code=404, detail="Invite not found")
         try:
@@ -343,61 +430,3 @@ class AdminInviteRequestOperations(InviteOperations):
                 continue
         self.db.commit()
         return {"message": f"Deleted {deleted_count} invite requests"}
-
-    def activate_invite_request(self, email: str):
-        db_invite = self.get_invite_request_by_email(email)
-        if not db_invite:
-            raise HTTPException(status_code=404, detail="Invite request not found")
-        if db_invite.status != "pending":
-            raise HTTPException(status_code=400, detail=f"Invite request is already {db_invite.status}")
-
-        # Check if user already exists
-        existing_user = self.db.query(Users).filter(Users.email == email).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail=f"User with email {email} already exists")
-
-        alphabet = string.ascii_letters + string.digits
-        random_password = ''.join(secrets.choice(alphabet) for _ in range(12))
-
-        # name_from_email = email.split('@')[0]
-
-
-        password_hash = create_password_hash(random_password)
-
-        uid = str(uuid.uuid4())
-        new_user = Users(
-            name=email.split('@')[0],
-            email=email,
-            password_hash=password_hash,
-            role="user",
-            is_active=True,
-            email_verified=True,
-            created_at=datetime.utcnow(),
-            tenant_id=uid,
-            subscription_tier="pro",
-            monthly_quota=100,
-        )
-        try:
-            self.db.add(new_user)
-            self.db.commit()
-            self.db.refresh(new_user)
-        except Exception as e:
-            self.db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
-
-        # Update invite status to activated
-        try:
-            db_invite.status = "activated"
-            self.db.commit()
-            self.db.refresh(db_invite)
-        except Exception as e:
-            self.db.rollback()
-            raise HTTPException(status_code=500, detail=f"Failed to update invite status: {str(e)}")
-
-        return {
-            "message": "Invite activated successfully",
-            "email": email,
-            "password": random_password,
-            "user_id": new_user.id,
-            "status": "activated"
-        }
