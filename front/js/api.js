@@ -92,10 +92,24 @@ const Api = {
         });
     },
 
-    async requestInvite(email) {
+async requestInvite(email) {
         return this.request('/users/demande_invite', {
             method: 'POST',
             body: JSON.stringify({ email: email })
+        });
+    },
+
+    async upgradeSubscription(tier) {
+        return this.request('/users/upgrade', {
+            method: 'POST',
+            body: JSON.stringify({ tier: tier })
+        });
+    },
+
+    async requestEnterpriseInvite(data) {
+        return this.request('/users/enterprise_invite', {
+            method: 'POST',
+            body: JSON.stringify(data)
         });
     },
 
@@ -334,6 +348,13 @@ const Api = {
         });
     },
 
+    async updateUserSubscription(userId, subscriptionData) {
+        return this.request(`/admin/users/${userId}/subscription`, {
+            method: 'PATCH',
+            body: JSON.stringify(subscriptionData)
+        });
+    },
+
     // ==================== ADMIN INVITES ====================
     async getInvites(skip = 0, limit = 100) {
         return this.request(`/admin/invites?skip=${skip}&limit=${limit}`);
@@ -343,12 +364,18 @@ const Api = {
         return this.request(`/admin/invites/${email}`);
     },
 
-    async createInvite(inviteData) {
-        return this.request('/admin/invites', {
-            method: 'POST',
-            body: JSON.stringify(inviteData)
-        });
-    },
+    async createInvite(email, plan_type = "pro") {
+    return this.request(`/admin/invites`, {
+        method: 'POST',
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            email,
+            plan_type
+        })
+    });
+},
 
     async deleteInvite(email) {
         return this.request(`/admin/invites/${email}`, {

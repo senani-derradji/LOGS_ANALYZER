@@ -73,6 +73,7 @@ const Utils = {
             'PENDING': '<span class="badge bg-warning">Pending</span>',
             'COMPLETED': '<span class="badge bg-success">Completed</span>',
             'REJECTED': '<span class="badge bg-danger">Rejected</span>',
+            'ACTIVATED': '<span class="badge bg-primary">Activated</span>',
             'ACTIVATED': '<span class="badge bg-primary">Activated</span>'
         };
         return badges[statusUpper] || `<span class="badge bg-secondary">${Utils.escapeHtml(status)}</span>`;

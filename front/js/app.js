@@ -646,7 +646,92 @@ const App = {
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
     },
-async handleCreateApiKey(e) {
+
+    showUpgradeModal(planType) {
+        const modalEl = document.getElementById('upgradeModal');
+        const modal = new bootstrap.Modal(modalEl);
+        const titleEl = document.getElementById('upgradeModalTitle');
+        const bodyEl = document.getElementById('upgradeModalBody');
+
+        if (planType === 'pro') {
+            titleEl.textContent = 'Upgrade to Pro Plan';
+            bodyEl.innerHTML = `
+                <div class="text-center mb-4">
+                    <div class="display-4 text-primary mb-3">$9.99</div>
+                    <h5 class="text-muted">per month</h5>
+                </div>
+                <div class="mb-4">
+                    <h6 class="text-muted">Plan Features:</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>100 log uploads per month</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Basic analytics</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Email support</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>API access</li>
+                    </ul>
+                </div>
+                <form id="upgradeForm">
+                    <input type="hidden" id="upgradePlanType" value="${planType}">
+                    <div class="mb-3">
+                        <label for="upgradeReason" class="form-label">Reason for upgrade (optional)</label>
+                        <textarea class="form-control" id="upgradeReason" rows="3" placeholder="Tell us why you'd like to upgrade..."></textarea>
+                    </div>
+                </form>
+            `;
+        } else if (planType === 'enterprise') {
+            titleEl.textContent = 'Upgrade to Enterprise Plan';
+            bodyEl.innerHTML = `
+                <div class="text-center mb-4">
+                    <div class="display-4 text-dark mb-3">Custom</div>
+                    <h5 class="text-muted">Contact sales for pricing</h5>
+                </div>
+                <div class="mb-4">
+                    <h6 class="text-muted">Enterprise Plan Features:</h6>
+                    <ul class="list-unstyled">
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>1000 log uploads per month</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Advanced analytics</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Priority support</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Custom integrations</li>
+                        <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Dedicated account manager</li>
+                    </ul>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Enterprise plan will be active for 1 month from activation.
+                </div>
+            `;
+        }
+
+        modal.show();
+    },
+
+    async processUpgrade() {
+        const planType = document.getElementById('upgradePlanType').value;
+        const modalEl = document.getElementById('upgradeModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+
+        try {
+            Utils.showLoader();
+
+             if (planType === 'pro') {
+                 const result = await Api.upgradeSubscription('pro');
+                 Utils.showToast('Subscription upgraded to Pro! Valid for 1 month.', 'success');
+                 modal.hide();
+                 this.loadUserProfile();
+             } else if (planType === 'enterprise') {
+                 // For logged-in users, upgrade to enterprise via proper endpoint
+                 const result = await Api.upgradeSubscription('enterprise');
+                 Utils.showToast('Subscription upgraded to Enterprise! Valid for 1 month.', 'success');
+                 modal.hide();
+                 this.loadUserProfile();
+             }
+         } catch (error) {
+             Utils.showToast(error.message || 'Failed to submit upgrade request', 'error');
+         } finally {
+             Utils.hideLoader();
+         }
+     },
+
+    async handleCreateApiKey(e) {
     e.preventDefault();
     const name = document.getElementById('apiKeyName').value;
 
@@ -1961,26 +2046,35 @@ copyCodeToClipboard(elementId) {
                  return;
              }
 
-             invites.forEach(invite => {
-                 const row = document.createElement('tr');
-                 row.innerHTML = `
-                     <td>${invite.id}</td>
-                     <td>${Utils.escapeHtml(invite.email)}</td>
-                     <td>${Utils.getInviteStatusBadge(invite.status)}</td>
-                     <td>${Utils.formatDate(invite.created_at)}</td>
-                     <td>
-                         ${invite.status === 'PENDING' ? `
-                             <button class="btn btn-sm btn-success" onclick="App.approveInvite('${encodeURIComponent(invite.email)}')" title="Approve & Send Invite">
-                                 <i class="fas fa-check"></i> Approve
-                             </button>
-                         ` : '<span class="badge bg-secondary">No Actions</span>'}
-                         <button class="btn btn-sm btn-danger" onclick="App.deleteInvite('${encodeURIComponent(invite.email)}')" title="Delete">
-                             <i class="fas fa-trash"></i>
-                         </button>
-                     </td>
-                 `;
-                 tbody.appendChild(row);
-             });
+              invites.forEach(invite => {
+                  const row = document.createElement('tr');
+                  const expiresAt = invite.subscription_expires_at || invite.subscription_expires_at;
+                  row.innerHTML = `
+                      <td><input type="checkbox" class="invite-checkbox" value="${invite.id}"></td>
+                      <td>${invite.id}</td>
+                      <td>${Utils.escapeHtml(invite.email)}</td>
+                      <td><span class="badge ${invite.plan_type === 'enterprise' ? 'bg-dark' : 'bg-primary'}">${invite.plan_type || 'pro'}</span></td>
+                      <td>${Utils.getInviteStatusBadge(invite.status)}</td>
+                      <td>
+                          ${invite.status === 'pending' ? `
+                              <button class="btn btn-sm btn-success" onclick="App.approveInvite('${encodeURIComponent(invite.email)}')" title="Approve & Create User">
+                                  <i class="fas fa-check"></i> Approve
+                              </button>
+                          ` : '<span class="badge bg-secondary">Completed</span>'}
+                      </td>
+                      <td>${Utils.formatDate(invite.created_at)}</td>
+                      <td>${expiresAt ? Utils.formatDate(expiresAt) : '<span class="text-muted">N/A</span>'}</td>
+                      <td>
+                          <button class="btn btn-sm btn-info" onclick="App.getInviteDetails('${encodeURIComponent(invite.email)}')" title="Details">
+                              <i class="fas fa-info-circle"></i>
+                          </button>
+                          <button class="btn btn-sm btn-danger" onclick="App.deleteInvite('${encodeURIComponent(invite.email)}')" title="Delete">
+                              <i class="fas fa-trash"></i>
+                          </button>
+                      </td>
+                  `;
+                  tbody.appendChild(row);
+              });
          } catch (error) {
              console.error('Error loading invites:', error);
          }
@@ -1989,7 +2083,7 @@ copyCodeToClipboard(elementId) {
       async approveInvite(email) {
           const decodedEmail = decodeURIComponent(email);
           try {
-              const result = await Api.createInvite({ email: decodedEmail });
+              const result = await Api.createInvite(decodedEmail, 'pro');
               Utils.showToast('Invite sent successfully!', 'success');
               this.loadInvites();
           } catch (error) {
@@ -1997,7 +2091,57 @@ copyCodeToClipboard(elementId) {
           }
       },
 
-     async deleteInvite(email) {
+      async getInviteDetails(email) {
+          const decodedEmail = decodeURIComponent(email);
+          try {
+              const invite = await Api.getInvite(decodedEmail);
+              
+              let companyInfo = '';
+              if (invite.company_name) {
+                  companyInfo = `
+                      <div class="mb-2">
+                          <strong>Company:</strong> ${Utils.escapeHtml(invite.company_name)}<br>
+                          <strong>Contact:</strong> ${Utils.escapeHtml(invite.contact_person || 'N/A')}<br>
+                          <strong>Phone:</strong> ${Utils.escapeHtml(invite.phone || 'N/A')}<br>
+                          <strong>Required Quota:</strong> ${invite.required_quota || 1000} logs/month
+                      </div>
+                  `;
+              }
+
+              let messageInfo = '';
+              if (invite.message) {
+                  messageInfo = `
+                      <div class="mb-3">
+                          <label class="form-label text-muted"><strong>Message:</strong></label>
+                          <p class="text-break" style="max-height: 200px; overflow-y: auto;">${Utils.escapeHtml(invite.message)}</p>
+                      </div>
+                  `;
+              }
+
+               Swal.fire({
+                   title: 'Invite Details',
+                   html: `
+                       <div class="text-start">
+                           <div class="mb-2">
+                               <strong>Email:</strong> ${Utils.escapeHtml(invite.email)}<br>
+                               <strong>Plan Type:</strong> <span class="badge ${invite.plan_type === 'enterprise' ? 'bg-dark' : 'bg-primary'}">${invite.plan_type || 'pro'}</span><br>
+                               <strong>Status:</strong> ${Utils.escapeHtml(invite.status)}<br>
+                               <strong>Created:</strong> ${Utils.formatDate(invite.created_at)}<br>
+                               <strong>Expiration:</strong> ${invite.subscription_expires_at ? Utils.formatDate(invite.subscription_expires_at) : '<span class="text-muted">N/A</span>'}
+                           </div>
+                           ${companyInfo}
+                           ${messageInfo}
+                       </div>
+                   `,
+                   icon: 'info',
+                   confirmButtonText: 'Close'
+               });
+          } catch (error) {
+              Utils.showToast(error.message || 'Failed to load invite details', 'error');
+          }
+      },
+
+      async deleteInvite(email) {
          const decodedEmail = decodeURIComponent(email);
          const confirmed = await Utils.confirmSwal('Delete Invite', `Are you sure you want to delete the invite request for ${decodedEmail}?`);
 
